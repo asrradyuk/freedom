@@ -8,6 +8,13 @@ from app.api.v1.router import api_router
 from app.core.config import settings
 from app.services.reminders import reschedule_pending_reminders, scheduler
 
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=["*"]
+)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
