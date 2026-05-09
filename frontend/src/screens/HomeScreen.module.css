@@ -1,0 +1,107 @@
+.header {
+  padding: 20px 20px 12px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.greeting {
+  font-size: 13px;
+  color: var(--gray-mid);
+  margin-bottom: 2px;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: var(--gray-dark);
+}
+
+.group {
+  margin-bottom: 24px;
+  animation: fadeUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.dayLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-mid);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 10px;
+}
+
+.sessionList { display: flex; flex-direction: column; gap: 10px; }
+
+.sessionCard {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px !important;
+}
+
+.sessionTime {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--blue-dark);
+  min-width: 44px;
+}
+
+.sessionInfo { flex: 1; }
+
+.clientName {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--gray-dark);
+  margin-bottom: 4px;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+.paid { background: #E6F9F0; color: #1A7A4A; }
+.unpaid { background: #FFF3E0; color: #B45309; }
+
+.joinBtn {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--blue-text);
+  background: var(--blue-light);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px 20px;
+  gap: 8px;
+}
+.emptyIcon { font-size: 40px; margin-bottom: 8px; }
+.emptyTitle { font-family: var(--font-display); font-size: 16px; font-weight: 600; color: var(--gray-dark); }
+.emptyText { font-size: 14px; color: var(--gray-mid); text-align: center; }
+
+.skeleton {
+  height: 80px;
+  background: linear-gradient(90deg, var(--gray-card) 25%, var(--milk-dark) 50%, var(--gray-card) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: var(--radius-md);
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+@keyframes shimmer { to { background-position: -200% 0; } }
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}

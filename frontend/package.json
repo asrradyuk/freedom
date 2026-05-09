@@ -1,7 +1,7 @@
 {
   "name": "frontend",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,8 +11,10 @@
   },
   "dependencies": {
     "@twa-dev/sdk": "^8.0.2",
+    "axios": "^1.7.7",
     "react": "^19.2.5",
-    "react-dom": "^19.2.5"
+    "react-dom": "^19.2.5",
+    "zustand": "^5.0.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

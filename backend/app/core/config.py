@@ -13,8 +13,7 @@ class Settings(BaseSettings):
     LIVEKIT_API_SECRET: str
 
     PAYMENT_URL: str = ""
-    ADMIN_IDS: list[int] = []
-
+    ADMIN_IDS: str = "" 
     UPLOAD_DIR: str = "uploads"
     MAX_FILE_SIZE_MB: int = 50
 

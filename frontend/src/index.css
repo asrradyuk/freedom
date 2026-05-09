@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;700&family=Golos+Text:wght@400;500;600&display=swap');
+
 * {
   margin: 0;
   padding: 0;
@@ -7,7 +9,9 @@
 
 :root {
   --milk: #FAFAF7;
+  --milk-dark: #F0F0EA;
   --blue-light: #B5D4F4;
+  --blue-light-hover: #9EC5EE;
   --blue-mid: #378ADD;
   --blue-dark: #0C447C;
   --blue-text: #185FA5;
@@ -15,23 +19,110 @@
   --gray-mid: #888780;
   --gray-dark: #2C2C2A;
   --gray-muted: #5F5E5A;
+  --gray-card: #EFEFEA;
+  --white: #FFFFFF;
+
+  --radius-sm: 12px;
+  --radius-md: 18px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+
+  --shadow-card: 0 2px 12px rgba(44, 44, 42, 0.07);
+  --shadow-btn: 0 4px 16px rgba(55, 138, 221, 0.25);
+
+  --font-display: 'Unbounded', sans-serif;
+  --font-body: 'Golos Text', sans-serif;
+
+  --nav-h: 72px;
+  --safe-bottom: env(safe-area-inset-bottom, 16px);
 }
 
-body {
-  font-family: 'Inter', -apple-system, sans-serif;
-  background-color: var(--milk);
-  color: var(--gray-dark);
-  min-height: 100vh;
+html, body, #root {
+  height: 100%;
+  width: 100%;
   overflow-x: hidden;
 }
 
-#root {
-  min-height: 100vh;
+body {
+  font-family: var(--font-body);
+  background-color: var(--milk);
+  color: var(--gray-dark);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
 }
 
 button {
   cursor: pointer;
   border: none;
   outline: none;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
+  font-size: 15px;
+}
+
+input, textarea {
+  font-family: var(--font-body);
+  font-size: 15px;
+  outline: none;
+  border: none;
+  background: none;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.screen {
+  min-height: 100dvh;
+  padding-bottom: calc(var(--nav-h) + var(--safe-bottom));
+  background: var(--milk);
+}
+
+.screen-header {
+  padding: 20px 20px 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--milk);
+}
+
+.screen-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--gray-dark);
+  letter-spacing: -0.5px;
+}
+
+.screen-subtitle {
+  font-size: 13px;
+  color: var(--gray-mid);
+  margin-top: 2px;
+}
+
+.screen-content {
+  padding: 16px 20px;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s ease both;
 }

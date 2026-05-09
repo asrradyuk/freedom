@@ -1,0 +1,19 @@
+.card {
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.default { padding: 18px; }
+.flat { background: var(--gray-card); box-shadow: none; padding: 16px; }
+.blue { background: var(--blue-light); box-shadow: none; padding: 18px; }
+
+.clickable {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.clickable:active {
+  transform: scale(0.985);
+  box-shadow: 0 1px 6px rgba(44,44,42,0.08);
+}

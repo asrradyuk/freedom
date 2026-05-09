@@ -1,0 +1,154 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 0;
+}
+
+.back {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--blue-text);
+  padding: 8px 0;
+}
+
+.editBtn {
+  background: none;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--blue-text);
+  padding: 8px 0;
+}
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 20px 20px;
+  text-align: center;
+}
+
+.avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 22px;
+  background: var(--blue-light);
+  color: var(--blue-dark);
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.name {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  color: var(--gray-dark);
+}
+
+.note {
+  font-size: 14px;
+  color: var(--gray-mid);
+  margin-top: 6px;
+  max-width: 260px;
+  line-height: 1.4;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.actionBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  padding: 20px 16px;
+  box-shadow: var(--shadow-card);
+  transition: transform 0.15s ease;
+}
+.actionBtn:active { transform: scale(0.97); }
+
+.actionIcon { font-size: 26px; }
+.actionLabel { font-size: 14px; font-weight: 600; color: var(--gray-dark); }
+
+.meetingCard { margin-bottom: 12px; }
+.infoCard { margin-bottom: 12px; }
+
+.sectionLabel {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--gray-mid);
+  margin-bottom: 10px;
+}
+
+.meetingUrl {
+  font-size: 13px;
+  color: var(--blue-text);
+  word-break: break-all;
+}
+
+.reminderRow { display: flex; flex-direction: column; gap: 4px; }
+.reminderText { font-size: 14px; color: var(--gray-dark); }
+.reminderMsg { font-size: 13px; color: var(--gray-mid); font-style: italic; }
+
+.toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 15px;
+  color: var(--gray-dark);
+}
+
+.toggleBtn {
+  width: 48px;
+  height: 28px;
+  border-radius: 14px;
+  background: var(--gray-light);
+  position: relative;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+}
+.toggleBtn.on { background: var(--blue-mid); }
+
+.toggleThumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  background: var(--white);
+  transition: transform 0.2s ease;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+.toggleBtn.on .toggleThumb { transform: translateX(20px); }
+
+.deleteBtn {
+  width: 100%;
+  background: none;
+  font-size: 15px;
+  font-weight: 500;
+  color: #E74C3C;
+  padding: 16px;
+  margin-top: 8px;
+}
+
+.deleteText { font-size: 15px; color: var(--gray-dark); line-height: 1.5; }
