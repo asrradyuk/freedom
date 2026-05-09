@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { sessionsApi, clientsApi } from '../../api/index.js'
-import { useAppStore } from '../../store/index.js'
-import { Card } from '../../components/ui/Card.jsx'
+import { sessionsApi, clientsApi } from '../api'
+import { useAppStore } from '../store'
+import { Card } from '../components/ui/Card'
 import styles from './HomeScreen.module.css'
 
 function formatTime(dateStr) {

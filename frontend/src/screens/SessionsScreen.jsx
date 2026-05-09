@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { sessionsApi } from "../../api/index.js";
-import { useAppStore } from '../../store/index.js'
-import { Button } from '../../components/ui/Button.jsx'
-import { Card } from '../../components/ui/Card.jsx'
-import { BottomSheet } from '../../components/ui/BottomSheet.jsx'
-import { Input } from '../../components/ui/Input.jsx'
+import { sessionsApi } from "../api";
+import { useAppStore } from '../store'
+import { Button } from '../components/ui/Button'
+import { Card } from '../components/ui/Card'
+import { BottomSheet } from '../components/ui/BottomSheet'
+import { Input } from '../components/ui/Input'
 import styles from './SessionsScreen.module.css'
 
 function formatDateTime(dateStr) {
