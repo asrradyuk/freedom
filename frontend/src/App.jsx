@@ -9,6 +9,8 @@ import { ClientScreen } from './screens/ClientScreen'
 import { SessionsScreen } from './screens/SessionsScreen'
 import { MaterialsScreen } from './screens/MaterialsScreen'
 import { SubscriptionScreen } from './screens/SubscriptionScreen'
+import { RoleSelectScreen } from './screens/RoleSelectScreen'
+import { ClientViewScreen } from './screens/ClientViewScreen'
 
 function LoadingScreen() {
   return (
@@ -25,7 +27,7 @@ function LoadingScreen() {
   )
 }
 
-const SCREENS = {
+const SPECIALIST_SCREENS = {
   home: HomeScreen,
   clients: ClientsScreen,
   client: ClientScreen,
@@ -36,7 +38,7 @@ const SCREENS = {
 
 export default function App() {
   useTelegram()
-  const { activeScreen, setUser, setClients } = useAppStore()
+  const { activeScreen, setUser, setClients, role } = useAppStore()
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
@@ -56,7 +58,11 @@ export default function App() {
 
   if (!ready) return <LoadingScreen />
 
-  const Screen = SCREENS[activeScreen] || HomeScreen
+  if (!role) return <RoleSelectScreen />
+
+  if (role === 'client') return <ClientViewScreen />
+
+  const Screen = SPECIALIST_SCREENS[activeScreen] || HomeScreen
   return (
     <>
       <Screen />
