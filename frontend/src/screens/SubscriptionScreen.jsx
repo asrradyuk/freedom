@@ -1,7 +1,7 @@
-import { useAppStore } from '../../store'
-import { subscriptionApi } from '../../api'
-import { Button } from '../../components/ui/Button'
-import { Card } from '../../components/ui/Card'
+import { useAppStore } from '../../store/index.js'
+import { subscriptionApi } from '../../api/index.js'
+import { Button } from '../../components/ui/Button.jsx'
+import { Card } from '../../components/ui/Card.jsx'
 import styles from './SubscriptionScreen.module.css'
 
 const FEATURES = [

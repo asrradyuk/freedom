@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { clientsApi } from '../../api'
-import { useAppStore } from '../../store'
-import { Button } from '../../components/ui/Button'
-import { Card } from '../../components/ui/Card'
-import { BottomSheet } from '../../components/ui/BottomSheet'
-import { Input, Textarea } from '../../components/ui/Input'
+import { clientsApi } from '../../api/index.js'
+import { useAppStore } from '../../store/index.js'
+import { Button } from '../../components/ui/Button.jsx'
+import { Card } from '../../components/ui/Card.jsx'
+import { BottomSheet } from '../../components/ui/BottomSheet.jsx'
+import { Input, Textarea } from '../../components/ui/Input.jsx'
 import styles from './ClientsScreen.module.css'
 
 function ClientCard({ client, onClick }) {
