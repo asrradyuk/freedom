@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { sessionsApi } from '../../api'
+import { sessionsApi } from "../../api/index.js";
 import { useAppStore } from '../../store'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
