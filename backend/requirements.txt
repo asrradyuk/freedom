@@ -7,7 +7,7 @@ pydantic==2.9.2
 pydantic-settings==2.5.2
 python-dotenv==1.0.1
 python-multipart==0.0.12
-aiofiles==23.2.1,
+aiofiles==23.2.1
 aiogram==3.7.0
 apscheduler==3.10.4
 livekit-api==0.7.1
