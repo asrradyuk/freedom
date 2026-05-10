@@ -1,21 +1,33 @@
-from fastapi import Depends, Header
+from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
+from app.core.telegram import verify_telegram_init_data
 from app.db.session import get_db
 from app.models.models import User
 
 
 async def get_current_user(
-    x_init_data: str = Header(default="test", alias="X-Init-Data"),
+    x_init_data: str = Header(..., alias="X-Init-Data"),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    tg_id = 6425298190
+    tg_user = verify_telegram_init_data(x_init_data, settings.BOT_TOKEN)
+    if not tg_user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Telegram auth")
+
+    tg_id = tg_user["id"]
     result = await db.execute(select(User).where(User.tg_id == tg_id))
     user = result.scalar_one_or_none()
+
     if not user:
-        user = User(tg_id=tg_id, first_name="Саша", subscription_status="active")
+        user = User(
+            tg_id=tg_id,
+            username=tg_user.get("username"),
+            first_name=tg_user.get("first_name"),
+        )
         db.add(user)
         await db.commit()
         await db.refresh(user)
+
     return user
