@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import json
 from urllib.parse import parse_qsl, unquote
 
 
@@ -19,7 +20,6 @@ def verify_telegram_init_data(init_data: str, bot_token: str) -> dict | None:
     if not hmac.compare_digest(expected_hash, received_hash):
         return None
 
-    import json
     user_str = parsed.get("user")
     if not user_str:
         return None
