@@ -8,6 +8,7 @@ from app.core.deps import get_current_user
 from app.db.session import get_db
 from app.models.models import Client, Reminder, ReminderType, Session, SubscriptionStatus, User
 from app.schemas.schemas import SessionCreate, SessionOut, SessionUpdate
+from app.services.reminders import cancel_session_reminders, schedule_session_reminders
 
 router = APIRouter()
 
@@ -55,7 +56,7 @@ async def create_session(
     if user.subscription_status != SubscriptionStatus.active:
         raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Subscription required")
 
-    await _get_client_or_404(client_id, user, db)
+    client = await _get_client_or_404(client_id, user, db)
 
     session = Session(client_id=client_id, **payload.model_dump())
     db.add(session)
@@ -66,6 +67,10 @@ async def create_session(
 
     await db.commit()
     await db.refresh(session)
+
+    if client.reminders_enabled:
+        schedule_session_reminders(str(session.id), session.scheduled_at)
+
     return session
 
 
@@ -77,14 +82,21 @@ async def update_session(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_client_or_404(client_id, user, db)
+    client = await _get_client_or_404(client_id, user, db)
     session = await _get_session_or_404(session_id, client_id, db)
+
+    rescheduled = "scheduled_at" in payload.model_dump(exclude_unset=True)
 
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(session, field, value)
 
     await db.commit()
     await db.refresh(session)
+
+    if rescheduled and client.reminders_enabled:
+        cancel_session_reminders(str(session.id))
+        schedule_session_reminders(str(session.id), session.scheduled_at)
+
     return session
 
 
@@ -97,5 +109,6 @@ async def delete_session(
 ):
     await _get_client_or_404(client_id, user, db)
     session = await _get_session_or_404(session_id, client_id, db)
+    cancel_session_reminders(str(session.id))
     await db.delete(session)
     await db.commit()
