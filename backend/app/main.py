@@ -14,16 +14,18 @@ from app.services.reminders import reschedule_pending_reminders, scheduler
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Path(settings.UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
-    
+
     alembic_cfg = Config("alembic.ini")
     command.upgrade(alembic_cfg, "head")
-    
+
     scheduler.start()
     try:
         await reschedule_pending_reminders()
     except Exception:
         pass
+
     yield
+
     scheduler.shutdown()
 
 

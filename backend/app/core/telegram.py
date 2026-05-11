@@ -10,9 +10,7 @@ def verify_telegram_init_data(init_data: str, bot_token: str) -> dict | None:
     if not received_hash:
         return None
 
-    data_check_string = "\n".join(
-        f"{k}={v}" for k, v in sorted(parsed.items())
-    )
+    data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(parsed.items()))
 
     secret_key = hmac.new(b"WebAppData", bot_token.encode(), hashlib.sha256).digest()
     expected_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
@@ -24,4 +22,7 @@ def verify_telegram_init_data(init_data: str, bot_token: str) -> dict | None:
     if not user_str:
         return None
 
-    return json.loads(unquote(user_str))
+    try:
+        return json.loads(unquote(user_str))
+    except (json.JSONDecodeError, ValueError):
+        return None
