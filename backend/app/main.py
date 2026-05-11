@@ -1,4 +1,3 @@
-import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -10,21 +9,9 @@ from app.core.config import settings
 from app.services.reminders import reschedule_pending_reminders, scheduler
 
 
-async def _run_migrations() -> None:
-    await asyncio.to_thread(_run_migrations_sync)
-
-
-def _run_migrations_sync() -> None:
-    from alembic import command
-    from alembic.config import Config
-    alembic_cfg = Config("alembic.ini")
-    command.upgrade(alembic_cfg, "head")
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Path(settings.UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
-    await _run_migrations()
     scheduler.start()
     try:
         await reschedule_pending_reminders()
