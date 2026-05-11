@@ -12,8 +12,19 @@ from app.models.models import Client, Reminder, ReminderType, Session
 
 scheduler = AsyncIOScheduler(timezone="UTC")
 
+_OFFSET_BY_TYPE = {
+    ReminderType.client_24h: timedelta(hours=24),
+    ReminderType.client_1h: timedelta(hours=1),
+    ReminderType.specialist_1h: timedelta(hours=1),
+}
 
-async def _send_reminder(session_id: str) -> None:
+_JOB_ID_24H = "reminder_24h_{}"
+_JOB_ID_1H = "reminder_1h_{}"
+
+
+async def _send_reminder(session_id: str, reminder_type_value: str) -> None:
+    reminder_type = ReminderType(reminder_type_value)
+
     async with async_session_factory() as db:
         result = await db.execute(
             select(Session)
@@ -30,72 +41,78 @@ async def _send_reminder(session_id: str) -> None:
 
         meeting_url = client.meeting_url or ""
         reminder_text = client.reminder_text or "Напоминание о занятии"
-
-        buttons = []
-        if meeting_url:
-            buttons.append([InlineKeyboardButton(text="Открыть встречу", url=meeting_url)])
-        specialist_kb = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
+        time_str = session.scheduled_at.strftime("%d.%m.%Y %H:%M")
 
         try:
-            await bot.send_message(
-                chat_id=specialist.tg_id,
-                text=f"🔔 {reminder_text}\n\nКлиент: {client.name}\n"
-                     f"Время: {session.scheduled_at.strftime('%H:%M')}",
-                reply_markup=specialist_kb,
-            )
+            if reminder_type == ReminderType.specialist_1h:
+                buttons = []
+                if meeting_url:
+                    buttons.append([InlineKeyboardButton(text="Открыть встречу", url=meeting_url)])
+                kb = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
+                await bot.send_message(
+                    chat_id=specialist.tg_id,
+                    text=f"🔔 {reminder_text}\n\nКлиент: {client.name}\nВремя: {time_str}",
+                    reply_markup=kb,
+                )
+            elif reminder_type in (ReminderType.client_24h, ReminderType.client_1h):
+                if client.client_tg_id:
+                    buttons = []
+                    if meeting_url:
+                        buttons.append([InlineKeyboardButton(text="Подключиться", url=meeting_url)])
+                    kb = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
+                    await bot.send_message(
+                        chat_id=client.client_tg_id,
+                        text=f"🔔 {reminder_text}\n\nВремя занятия: {time_str}",
+                        reply_markup=kb,
+                    )
         except Exception:
             pass
+        finally:
+            await bot.session.close()
 
-        if client.client_tg_id:
-            client_buttons = []
-            if meeting_url:
-                client_buttons.append([InlineKeyboardButton(text="Подключиться", url=meeting_url)])
-            client_kb = InlineKeyboardMarkup(inline_keyboard=client_buttons) if client_buttons else None
-
-            try:
-                await bot.send_message(
-                    chat_id=client.client_tg_id,
-                    text=f"🔔 {reminder_text}",
-                    reply_markup=client_kb,
-                )
-            except Exception:
-                pass
-
-        result = await db.execute(
-            select(Reminder).where(Reminder.session_id == session.id)
+        rem_result = await db.execute(
+            select(Reminder).where(
+                Reminder.session_id == session.id,
+                Reminder.reminder_type == reminder_type,
+            )
         )
-        for reminder in result.scalars().all():
+        reminder = rem_result.scalar_one_or_none()
+        if reminder:
             reminder.sent = True
         await db.commit()
-
-        await bot.session.close()
 
 
 def schedule_session_reminders(session_id: str, scheduled_at: datetime) -> None:
     now = datetime.now(timezone.utc)
 
-    at_24h = scheduled_at - timedelta(hours=24)
-    at_1h = scheduled_at - timedelta(hours=1)
+    jobs = [
+        (_JOB_ID_24H.format(session_id), scheduled_at - timedelta(hours=24), ReminderType.client_24h),
+        (_JOB_ID_1H.format(session_id), scheduled_at - timedelta(hours=1), ReminderType.client_1h),
+        (f"reminder_spec_1h_{session_id}", scheduled_at - timedelta(hours=1), ReminderType.specialist_1h),
+    ]
 
-    if at_24h > now:
-        scheduler.add_job(
-            _send_reminder,
-            trigger="date",
-            run_date=at_24h,
-            args=[session_id],
-            id=f"reminder_24h_{session_id}",
-            replace_existing=True,
-        )
+    for job_id, run_date, reminder_type in jobs:
+        if run_date > now:
+            scheduler.add_job(
+                _send_reminder,
+                trigger="date",
+                run_date=run_date,
+                args=[session_id, reminder_type.value],
+                id=job_id,
+                replace_existing=True,
+            )
 
-    if at_1h > now:
-        scheduler.add_job(
-            _send_reminder,
-            trigger="date",
-            run_date=at_1h,
-            args=[session_id],
-            id=f"reminder_1h_{session_id}",
-            replace_existing=True,
-        )
+
+def cancel_session_reminders(session_id: str) -> None:
+    for job_id in (
+        _JOB_ID_24H.format(session_id),
+        _JOB_ID_1H.format(session_id),
+        f"reminder_spec_1h_{session_id}",
+    ):
+        try:
+            scheduler.remove_job(job_id)
+        except Exception:
+            pass
 
 
 async def reschedule_pending_reminders() -> None:
