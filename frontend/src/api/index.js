@@ -11,7 +11,7 @@ api.interceptors.request.use((config) => {
 })
 
 export const authApi = {
-  me: () => api.get('/auth'),
+  me: () => api.post('/auth/auth'),
 }
 
 export const clientsApi = {

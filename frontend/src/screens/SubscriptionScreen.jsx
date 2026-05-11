@@ -14,11 +14,12 @@ const FEATURES = [
 ]
 
 export function SubscriptionScreen() {
-  const { user, subscriptionActive } = useAppStore()
+  const { user, subscriptionActive, setUser } = useAppStore()
 
   const handleConfirm = async () => {
     try {
-      await subscriptionApi.confirm()
+      const res = await subscriptionApi.confirm()
+      setUser(res.data)
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success')
     } catch {
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')

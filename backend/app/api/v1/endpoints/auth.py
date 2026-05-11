@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,7 +13,7 @@ router = APIRouter()
 
 @router.post("/auth", response_model=UserOut)
 async def authenticate(
-    x_init_data: str,
+    x_init_data: str = Header(..., alias="X-Init-Data"),
     db: AsyncSession = Depends(get_db),
 ):
     tg_user = verify_telegram_init_data(x_init_data, settings.BOT_TOKEN)
