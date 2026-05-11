@@ -3,12 +3,14 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.deps import get_current_user
 from app.db.session import get_db
-from app.models.models import Client, SubscriptionStatus, User
+from app.models.models import Client, Session, SubscriptionStatus, User
 from app.schemas.schemas import ClientCreate, ClientOut, ClientUpdate
 from app.services.livekit import create_room_name
+from app.services.reminders import cancel_session_reminders, schedule_session_reminders
 
 router = APIRouter()
 
@@ -76,10 +78,32 @@ async def update_client(
     db: AsyncSession = Depends(get_db),
 ):
     client = await _get_client_or_404(client_id, user, db)
-    for field, value in payload.model_dump(exclude_unset=True).items():
+
+    updates = payload.model_dump(exclude_unset=True)
+    reminders_toggled = "reminders_enabled" in updates
+    was_enabled = client.reminders_enabled
+
+    for field, value in updates.items():
         setattr(client, field, value)
+
     await db.commit()
     await db.refresh(client)
+
+    if reminders_toggled and was_enabled != client.reminders_enabled:
+        sessions_result = await db.execute(
+            select(Session)
+            .options(selectinload(Session.reminders))
+            .where(Session.client_id == client.id)
+        )
+        sessions = sessions_result.scalars().all()
+
+        for session in sessions:
+            if client.reminders_enabled:
+                if any(not r.sent for r in session.reminders):
+                    schedule_session_reminders(str(session.id), session.scheduled_at)
+            else:
+                cancel_session_reminders(str(session.id))
+
     return client
 
 
