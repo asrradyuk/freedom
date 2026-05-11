@@ -1,13 +1,14 @@
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.deps import get_current_user
 from app.db.session import get_db
 from app.models.models import SubscriptionStatus, User
-from app.schemas.schemas import SubscriptionUpdate, UserOut
+from app.schemas.schemas import UserOut
 
 router = APIRouter()
 
@@ -22,7 +23,8 @@ async def confirm_payment(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    user.subscription_status = SubscriptionStatus.inactive
+    user.subscription_status = SubscriptionStatus.active
+    user.subscription_expires_at = datetime.now(timezone.utc) + timedelta(days=30)
     await db.commit()
     await db.refresh(user)
     return user
@@ -37,7 +39,6 @@ async def admin_activate(
     if user.tg_id not in settings.ADMIN_IDS:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin only")
 
-    from sqlalchemy import select
     result = await db.execute(select(User).where(User.tg_id == target_tg_id))
     target = result.scalar_one_or_none()
     if not target:
