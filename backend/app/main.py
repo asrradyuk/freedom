@@ -1,6 +1,8 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+from alembic import command
+from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -12,8 +14,15 @@ from app.services.reminders import reschedule_pending_reminders, scheduler
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Path(settings.UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
+    
+    alembic_cfg = Config("alembic.ini")
+    command.upgrade(alembic_cfg, "head")
+    
     scheduler.start()
-    await reschedule_pending_reminders()
+    try:
+        await reschedule_pending_reminders()
+    except Exception:
+        pass
     yield
     scheduler.shutdown()
 
