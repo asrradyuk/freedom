@@ -1,5 +1,6 @@
 from typing import Any
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,21 +20,19 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "uploads"
     MAX_FILE_SIZE_MB: int = 50
 
+    @field_validator("ADMIN_IDS", mode="before")
     @classmethod
-    def _parse_admin_ids(cls, v: Any) -> list[int]:
+    def parse_admin_ids(cls, v: Any) -> list[int]:
         if isinstance(v, list):
-            return v
-        if isinstance(v, str) and v.strip():
+            return [int(x) for x in v]
+        if isinstance(v, (int, float)):
+            return [int(v)]
+        if isinstance(v, str):
+            v = v.strip().strip("[]")
+            if not v:
+                return []
             return [int(x.strip()) for x in v.split(",") if x.strip()]
         return []
-
-    def model_post_init(self, __context: Any) -> None:
-        if isinstance(self.ADMIN_IDS, str):
-            object.__setattr__(
-                self,
-                "ADMIN_IDS",
-                self._parse_admin_ids(self.ADMIN_IDS),
-            )
 
 
 settings = Settings()
