@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { clientsApi } from './api'
+import { authApi, clientsApi } from './api'
 import { useAppStore } from './store'
 import { useTelegram } from './hooks/useTelegram'
 import { BottomNav } from './components/layout/BottomNav'
@@ -42,11 +42,8 @@ export default function App() {
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    const initData = window.Telegram?.WebApp?.initData || ''
     Promise.all([
-      fetch('/api/v1/auth', { headers: { 'X-Init-Data': initData } })
-        .then((r) => r.ok ? r.json() : null)
-        .catch(() => null),
+      authApi.me().then((r) => r.data).catch(() => null),
       clientsApi.list().then((r) => r.data).catch(() => []),
     ])
       .then(([user, clients]) => {

@@ -2,7 +2,12 @@ import axios from 'axios'
 
 const BASE_URL = 'https://squeamish-progress-roster.ngrok-free.dev/api/v1'
 
-const api = axios.create({ baseURL: BASE_URL })
+const api = axios.create({
+  baseURL: BASE_URL,
+  headers: {
+    'ngrok-skip-browser-warning': 'true',
+  },
+})
 
 api.interceptors.request.use((config) => {
   const initData = window.Telegram?.WebApp?.initData || ''
