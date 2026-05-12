@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy import select
@@ -31,19 +31,26 @@ async def get_current_user(
             first_name=tg_user.get("first_name"),
         )
         db.add(user)
+        await db.flush()
+
+    if tg_id in FREE_ACCESS_IDS and user.subscription_status != SubscriptionStatus.active:
+        user.subscription_status = SubscriptionStatus.active
+        user.subscription_expires_at = datetime.now(timezone.utc) + timedelta(days=3650)
         await db.commit()
         await db.refresh(user)
-
-    if tg_id in FREE_ACCESS_IDS:
-        user.subscription_status = SubscriptionStatus.active
         return user
 
     if (
         user.subscription_status == SubscriptionStatus.active
         and user.subscription_expires_at is not None
         and user.subscription_expires_at < datetime.now(timezone.utc)
+        and tg_id not in FREE_ACCESS_IDS
     ):
         user.subscription_status = SubscriptionStatus.inactive
+        await db.commit()
+        await db.refresh(user)
+
+    if user.subscription_status != SubscriptionStatus.active:
         await db.commit()
         await db.refresh(user)
 
