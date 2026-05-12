@@ -23,6 +23,8 @@ export function ClientScreen() {
 
   if (!currentClient) return null
 
+  const client = currentClient
+
   const goBack = () => {
     setActiveScreen('clients')
     setCurrentClient(null)
@@ -31,7 +33,7 @@ export function ClientScreen() {
   const handleSave = async () => {
     setSaving(true)
     try {
-      const res = await clientsApi.update(currentClient.id, {
+      const res = await clientsApi.update(client.id, {
         ...form,
         client_tg_id: form.client_tg_id ? Number(form.client_tg_id) : null,
         reminder_text: form.reminder_text || null,
@@ -49,14 +51,23 @@ export function ClientScreen() {
 
   const handleDelete = async () => {
     try {
-      await clientsApi.delete(currentClient.id)
-      removeClient(currentClient.id)
+      await clientsApi.delete(client.id)
+      removeClient(client.id)
       setActiveScreen('clients')
       setCurrentClient(null)
     } catch {}
   }
 
-  const client = currentClient
+  const handleMeetingPress = () => {
+    if (client.meeting_url) {
+      window.open(client.meeting_url, '_blank')
+    } else if (subscriptionActive && client.livekit_room) {
+      setActiveScreen('call')
+    }
+  }
+
+  const hasMeeting = client.meeting_url || (subscriptionActive && client.livekit_room)
+  const meetingLabel = client.meeting_url ? 'Открыть встречу' : '📹 Начать звонок'
 
   return (
     <div className="screen">
@@ -84,31 +95,35 @@ export function ClientScreen() {
           {subscriptionActive && (
             <ActionButton icon="📁" label="Материалы" onClick={() => setActiveScreen('materials')} />
           )}
-          {subscriptionActive && client.livekit_room && (
-            <ActionButton icon="📹" label="Звонок" onClick={() => setActiveScreen('call')} />
-          )}
         </div>
 
-        {client.meeting_url && (
+        {hasMeeting && (
           <Card className={styles.meetingCard}>
             <p className={styles.sectionLabel}>Встреча</p>
-            <p className={styles.meetingUrl}>{client.meeting_url}</p>
+            {client.meeting_url && (
+              <p className={styles.meetingUrl}>{client.meeting_url}</p>
+            )}
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-              <a href={client.meeting_url} target="_blank" rel="noreferrer" style={{ flex: 1 }}>
-                <Button variant="primary" size="md" style={{ width: '100%' }}>
-                  Открыть встречу
-                </Button>
-              </a>
               <Button
-                variant="secondary"
+                variant="primary"
                 size="md"
-                onClick={() => {
-                  navigator.clipboard?.writeText(client.meeting_url)
-                  window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success')
-                }}
+                style={{ flex: 1 }}
+                onClick={handleMeetingPress}
               >
-                Скопировать
+                {meetingLabel}
               </Button>
+              {client.meeting_url && (
+                <Button
+                  variant="secondary"
+                  size="md"
+                  onClick={() => {
+                    navigator.clipboard?.writeText(client.meeting_url)
+                    window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success')
+                  }}
+                >
+                  Скопировать
+                </Button>
+              )}
             </div>
           </Card>
         )}
@@ -130,8 +145,13 @@ export function ClientScreen() {
         {!subscriptionActive && (
           <Card variant="flat" className={styles.infoCard}>
             <p className={styles.sectionLabel}>Полный доступ</p>
-            <p className={styles.reminderText}>Материалы, напоминания и звонки доступны по подписке</p>
-            <Button variant="secondary" size="md" style={{ marginTop: 12, width: '100%' }} onClick={() => setActiveScreen('subscription')}>
+            <p className={styles.reminderText}>Материалы, напоминания и видеозвонки доступны по подписке</p>
+            <Button
+              variant="secondary"
+              size="md"
+              style={{ marginTop: 12, width: '100%' }}
+              onClick={() => setActiveScreen('subscription')}
+            >
               Оформить подписку
             </Button>
           </Card>
@@ -159,7 +179,12 @@ export function ClientScreen() {
           </button>
         </div>
         {form.reminders_enabled && (
-          <Textarea label="Текст напоминания" placeholder="Не забудьте про занятие!" value={form.reminder_text} onChange={(e) => setForm(f => ({ ...f, reminder_text: e.target.value }))} />
+          <Textarea
+            label="Текст напоминания"
+            placeholder="Не забудьте про занятие!"
+            value={form.reminder_text}
+            onChange={(e) => setForm(f => ({ ...f, reminder_text: e.target.value }))}
+          />
         )}
         <Button variant="primary" size="lg" onClick={handleSave} disabled={saving}>
           {saving ? 'Сохранение...' : 'Сохранить'}
