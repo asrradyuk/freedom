@@ -84,17 +84,32 @@ export function ClientScreen() {
           {subscriptionActive && (
             <ActionButton icon="📁" label="Материалы" onClick={() => setActiveScreen('materials')} />
           )}
+          {subscriptionActive && client.livekit_room && (
+            <ActionButton icon="📹" label="Звонок" onClick={() => setActiveScreen('call')} />
+          )}
         </div>
 
         {client.meeting_url && (
           <Card className={styles.meetingCard}>
             <p className={styles.sectionLabel}>Встреча</p>
             <p className={styles.meetingUrl}>{client.meeting_url}</p>
-            <a href={client.meeting_url} target="_blank" rel="noreferrer">
-              <Button variant="primary" size="md" style={{ marginTop: 12, width: '100%' }}>
-                Открыть встречу
+            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+              <a href={client.meeting_url} target="_blank" rel="noreferrer" style={{ flex: 1 }}>
+                <Button variant="primary" size="md" style={{ width: '100%' }}>
+                  Открыть встречу
+                </Button>
+              </a>
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={() => {
+                  navigator.clipboard?.writeText(client.meeting_url)
+                  window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success')
+                }}
+              >
+                Скопировать
               </Button>
-            </a>
+            </div>
           </Card>
         )}
 

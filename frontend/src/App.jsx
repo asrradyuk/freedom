@@ -11,6 +11,7 @@ import { MaterialsScreen } from './screens/MaterialsScreen'
 import { SubscriptionScreen } from './screens/SubscriptionScreen'
 import { RoleSelectScreen } from './screens/RoleSelectScreen'
 import { ClientViewScreen } from './screens/ClientViewScreen'
+import { CallScreen } from './screens/CallScreen'
 
 function LoadingScreen() {
   return (
@@ -34,6 +35,7 @@ const SPECIALIST_SCREENS = {
   sessions: SessionsScreen,
   materials: MaterialsScreen,
   subscription: SubscriptionScreen,
+  call: CallScreen,
 }
 
 export default function App() {
@@ -54,16 +56,16 @@ export default function App() {
   }, [])
 
   if (!ready) return <LoadingScreen />
-
   if (!role) return <RoleSelectScreen />
-
   if (role === 'client') return <ClientViewScreen />
 
   const Screen = SPECIALIST_SCREENS[activeScreen] || HomeScreen
+  const hideNav = ['client', 'sessions', 'materials', 'call'].includes(activeScreen)
+
   return (
     <>
       <Screen />
-      <BottomNav />
+      {!hideNav && <BottomNav />}
     </>
   )
 }
