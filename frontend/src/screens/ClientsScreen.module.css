@@ -1,3 +1,78 @@
+.header {
+  padding: 20px 20px 12px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: var(--gray-dark);
+}
+
+.count { font-size: 13px; color: var(--gray-mid); margin-top: 2px; }
+
+.list { display: flex; flex-direction: column; gap: 10px; }
+
+.item {
+  animation: fadeUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.clientCard {
+  display: flex !important;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px !important;
+}
+
+.avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--blue-light);
+  color: var(--blue-dark);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.info { flex: 1; min-width: 0; }
+
+.name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gray-dark);
+}
+
+.note {
+  font-size: 13px;
+  color: var(--gray-mid);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px 20px;
+  gap: 8px;
+}
+.emptyIcon { font-size: 40px; margin-bottom: 8px; }
+.emptyTitle { font-family: var(--font-display); font-size: 16px; font-weight: 600; color: var(--gray-dark); }
+.emptyText { font-size: 14px; color: var(--gray-mid); text-align: center; }
+
+.error { font-size: 13px; color: #E74C3C; }
+
 .freeBanner {
   display: flex;
   align-items: flex-start;
@@ -31,32 +106,7 @@
   flex-shrink: 0;
 }
 
-.freeBanner {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin: 0 20px 8px;
-  padding: 12px 14px;
-  background: var(--blue-light);
-  border-radius: var(--radius-md);
-  font-size: 13px;
-}
-.freeBannerTitle {
-  font-weight: 600;
-  color: var(--blue-dark);
-  margin-bottom: 2px;
-}
-.freeBannerText {
-  color: var(--blue-text);
-  line-height: 1.4;
-}
-.freeBannerBtn {
-  background: none;
-  color: var(--blue-dark);
-  font-weight: 600;
-  font-size: 13px;
-  white-space: nowrap;
-  padding: 0;
-  margin-top: 2px;
-  flex-shrink: 0;
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
