@@ -4,6 +4,8 @@ import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import styles from './SubscriptionScreen.module.css'
 
+const PAYMENT_URL = 'https://yookassa.ru/my/i/agDO8i12AyV0/l'
+
 const FEATURES = [
   { icon: '👥', text: 'Ведение клиентов' },
   { icon: '📅', text: 'Планирование занятий' },
@@ -62,9 +64,9 @@ export function SubscriptionScreen() {
               ))}
             </div>
 
-            <a href={import.meta.env.VITE_PAYMENT_URL || '#'} target="_blank" rel="noreferrer">
-              <Button variant="primary" size="lg">
-                Оплатить подписку
+            <a href={PAYMENT_URL} target="_blank" rel="noreferrer" style={{ display: 'block' }}>
+              <Button variant="primary" size="lg" style={{ width: '100%' }}>
+                Оплатить подписку — 599 ₽
               </Button>
             </a>
 

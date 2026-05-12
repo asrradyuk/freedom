@@ -1,11 +1,13 @@
 from fastapi import APIRouter
 
 from app.api.v1.endpoints import auth, clients, livekit, materials, sessions, subscription
+from app.api.v1.endpoints import client_view
 
 api_router = APIRouter()
 
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(clients.router, prefix="/clients", tags=["clients"])
+api_router.include_router(client_view.router, prefix="/clients", tags=["client-view"])
 api_router.include_router(
     sessions.router,
     prefix="/clients/{client_id}/sessions",
