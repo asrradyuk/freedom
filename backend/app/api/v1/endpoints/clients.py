@@ -15,11 +15,6 @@ from app.services.reminders import cancel_session_reminders, schedule_session_re
 router = APIRouter()
 
 
-def _require_subscription(user: User) -> None:
-    if user.subscription_status != SubscriptionStatus.active:
-        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Subscription required")
-
-
 async def _get_client_or_404(client_id: uuid.UUID, user: User, db: AsyncSession) -> Client:
     result = await db.execute(
         select(Client).where(Client.id == client_id, Client.specialist_id == user.id)
@@ -47,7 +42,8 @@ async def create_client(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    _require_subscription(user)
+    if user.subscription_status != SubscriptionStatus.active:
+        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Subscription required")
 
     room_name = create_room_name(user.tg_id)
     client = Client(
@@ -77,6 +73,9 @@ async def update_client(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    if user.subscription_status != SubscriptionStatus.active:
+        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Subscription required")
+
     client = await _get_client_or_404(client_id, user, db)
 
     updates = payload.model_dump(exclude_unset=True)
@@ -96,7 +95,6 @@ async def update_client(
             .where(Session.client_id == client.id)
         )
         sessions = sessions_result.scalars().all()
-
         for session in sessions:
             if client.reminders_enabled:
                 if any(not r.sent for r in session.reminders):
@@ -113,6 +111,9 @@ async def delete_client(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    if user.subscription_status != SubscriptionStatus.active:
+        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Subscription required")
+
     client = await _get_client_or_404(client_id, user, db)
     await db.delete(client)
     await db.commit()

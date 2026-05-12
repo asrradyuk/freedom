@@ -82,6 +82,9 @@ async def update_session(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    if user.subscription_status != SubscriptionStatus.active:
+        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Subscription required")
+
     client = await _get_client_or_404(client_id, user, db)
     session = await _get_session_or_404(session_id, client_id, db)
 
@@ -107,6 +110,9 @@ async def delete_session(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    if user.subscription_status != SubscriptionStatus.active:
+        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Subscription required")
+
     await _get_client_or_404(client_id, user, db)
     session = await _get_session_or_404(session_id, client_id, db)
     cancel_session_reminders(str(session.id))

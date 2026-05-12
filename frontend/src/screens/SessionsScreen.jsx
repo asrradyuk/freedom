@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { sessionsApi } from "../api";
+import { sessionsApi } from '../api'
 import { useAppStore } from '../store'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
@@ -9,16 +9,11 @@ import styles from './SessionsScreen.module.css'
 
 function formatDateTime(dateStr) {
   const d = new Date(dateStr)
-  return d.toLocaleString('ru-RU', {
-    day: 'numeric',
-    month: 'long',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return d.toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
 }
 
 export function SessionsScreen() {
-  const { currentClient, setActiveScreen } = useAppStore()
+  const { currentClient, setActiveScreen, subscriptionActive } = useAppStore()
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -49,6 +44,7 @@ export function SessionsScreen() {
   }
 
   const togglePayment = async (session) => {
+    if (!subscriptionActive) return
     const newStatus = session.payment_status === 'paid' ? 'unpaid' : 'paid'
     const res = await sessionsApi.update(currentClient.id, session.id, { payment_status: newStatus })
     setSessions((s) => s.map((x) => (x.id === session.id ? res.data : x)))
@@ -56,6 +52,7 @@ export function SessionsScreen() {
   }
 
   const handleDelete = async (id) => {
+    if (!subscriptionActive) return
     await sessionsApi.delete(currentClient.id, id)
     setSessions((s) => s.filter((x) => x.id !== id))
     window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('warning')
@@ -70,15 +67,21 @@ export function SessionsScreen() {
           </svg>
           {currentClient.name}
         </button>
-        <Button variant="secondary" size="sm" onClick={() => setSheetOpen(true)}>
-          + Добавить
-        </Button>
+        {subscriptionActive && (
+          <Button variant="secondary" size="sm" onClick={() => setSheetOpen(true)}>+ Добавить</Button>
+        )}
       </div>
 
       <div className={styles.titleRow}>
         <h1 className={styles.title}>Занятия</h1>
         <span className={styles.count}>{sessions.length}</span>
       </div>
+
+      {!subscriptionActive && (
+        <div style={{ margin: '0 20px 8px', padding: '10px 14px', background: 'var(--blue-light)', borderRadius: 'var(--radius-md)', fontSize: 13, color: 'var(--blue-dark)' }}>
+          🔒 Просмотр доступен бесплатно. Добавление и редактирование — по подписке.
+        </div>
+      )}
 
       <div className="screen-content">
         {loading ? (
@@ -87,7 +90,9 @@ export function SessionsScreen() {
           <div className={styles.empty}>
             <span className={styles.emptyIcon}>📅</span>
             <p className={styles.emptyTitle}>Нет занятий</p>
-            <p className={styles.emptyText}>Добавьте первое занятие с клиентом</p>
+            <p className={styles.emptyText}>
+              {subscriptionActive ? 'Добавьте первое занятие с клиентом' : 'Занятия появятся здесь когда специалист их добавит'}
+            </p>
           </div>
         ) : (
           <div className={styles.list}>
@@ -98,21 +103,24 @@ export function SessionsScreen() {
                   <span className={`${styles.badge} ${s.payment_status === 'paid' ? styles.paid : styles.unpaid}`}>
                     {s.payment_status === 'paid' ? 'Оплачено' : 'Не оплачено'}
                   </span>
+                  {currentClient.meeting_url && (
+                    <a href={currentClient.meeting_url} target="_blank" rel="noreferrer" className={styles.joinLink}>
+                      Открыть встречу →
+                    </a>
+                  )}
                 </div>
-                <div className={styles.cardActions}>
-                  <button
-                    className={styles.payBtn}
-                    onClick={() => togglePayment(s)}
-                    title="Изменить статус оплаты"
-                  >
-                    {s.payment_status === 'paid' ? '✅' : '⬜'}
-                  </button>
-                  <button className={styles.delBtn} onClick={() => handleDelete(s.id)}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
-                    </svg>
-                  </button>
-                </div>
+                {subscriptionActive && (
+                  <div className={styles.cardActions}>
+                    <button className={styles.payBtn} onClick={() => togglePayment(s)}>
+                      {s.payment_status === 'paid' ? '✅' : '⬜'}
+                    </button>
+                    <button className={styles.delBtn} onClick={() => handleDelete(s.id)}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+                      </svg>
+                    </button>
+                  </div>
+                )}
               </Card>
             ))}
           </div>
@@ -120,12 +128,7 @@ export function SessionsScreen() {
       </div>
 
       <BottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)} title="Новое занятие">
-        <Input
-          label="Дата и время"
-          type="datetime-local"
-          value={form.scheduled_at}
-          onChange={(e) => setForm((f) => ({ ...f, scheduled_at: e.target.value }))}
-        />
+        <Input label="Дата и время" type="datetime-local" value={form.scheduled_at} onChange={(e) => setForm((f) => ({ ...f, scheduled_at: e.target.value }))} />
         <div className={styles.paymentToggle}>
           <span className={styles.paymentLabel}>Статус оплаты</span>
           <div className={styles.paymentOptions}>

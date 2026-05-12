@@ -10,9 +10,7 @@ import styles from './ClientsScreen.module.css'
 function ClientCard({ client, onClick }) {
   return (
     <Card className={styles.clientCard} onClick={onClick}>
-      <div className={styles.avatar}>
-        {client.name.charAt(0).toUpperCase()}
-      </div>
+      <div className={styles.avatar}>{client.name.charAt(0).toUpperCase()}</div>
       <div className={styles.info}>
         <p className={styles.name}>{client.name}</p>
         {client.note && <p className={styles.note}>{client.note}</p>}
@@ -61,29 +59,35 @@ export function ClientsScreen() {
           <h1 className={styles.title}>Мои клиенты</h1>
           <p className={styles.count}>{clients.length} {declension(clients.length, ['клиент', 'клиента', 'клиентов'])}</p>
         </div>
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={() => {
-            if (!subscriptionActive) { setActiveScreen('subscription'); return }
-            setSheetOpen(true)
-          }}
-        >
-          + Добавить
-        </Button>
+        {subscriptionActive && (
+          <Button variant="primary" size="sm" onClick={() => setSheetOpen(true)}>
+            + Добавить
+          </Button>
+        )}
       </div>
+
+      {!subscriptionActive && (
+        <div className={styles.freeBanner}>
+          <span>🔒</span>
+          <div>
+            <p className={styles.freeBannerTitle}>Бесплатный доступ</p>
+            <p className={styles.freeBannerText}>Просмотр клиентов и расписания доступен. Для добавления клиентов нужна подписка.</p>
+          </div>
+          <button className={styles.freeBannerBtn} onClick={() => setActiveScreen('subscription')}>
+            Подписка →
+          </button>
+        </div>
+      )}
 
       <div className="screen-content">
         {clients.length === 0 ? (
           <div className={styles.empty}>
             <span className={styles.emptyIcon}>👥</span>
             <p className={styles.emptyTitle}>Нет клиентов</p>
-            <p className={styles.emptyText}>Добавьте первого клиента, чтобы начать</p>
-            {subscriptionActive && (
-              <Button variant="primary" onClick={() => setSheetOpen(true)} style={{ marginTop: 16 }}>
-                Добавить клиента
-              </Button>
-            )}
+            {subscriptionActive
+              ? <Button variant="primary" onClick={() => setSheetOpen(true)} style={{ marginTop: 16 }}>Добавить клиента</Button>
+              : <p className={styles.emptyText}>Оформите подписку чтобы добавлять клиентов</p>
+            }
           </div>
         ) : (
           <div className={styles.list}>
@@ -97,18 +101,8 @@ export function ClientsScreen() {
       </div>
 
       <BottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)} title="Новый клиент">
-        <Input
-          label="Имя"
-          placeholder="Анна Смирнова"
-          value={form.name}
-          onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-        />
-        <Textarea
-          label="Заметка"
-          placeholder="Например: занимается английским, уровень B1"
-          value={form.note}
-          onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
-        />
+        <Input label="Имя" placeholder="Анна Смирнова" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+        <Textarea label="Заметка" placeholder="Например: занимается английским, уровень B1" value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} />
         {error && <p className={styles.error}>{error}</p>}
         <Button variant="primary" size="lg" onClick={handleCreate} disabled={loading}>
           {loading ? 'Создание...' : 'Создать клиента'}

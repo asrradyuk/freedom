@@ -8,7 +8,7 @@ import { Input, Textarea } from '../components/ui/Input'
 import styles from './ClientScreen.module.css'
 
 export function ClientScreen() {
-  const { currentClient, updateClient, removeClient, setActiveScreen, setCurrentClient } = useAppStore()
+  const { currentClient, updateClient, removeClient, setActiveScreen, setCurrentClient, subscriptionActive } = useAppStore()
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [form, setForm] = useState({
@@ -67,9 +67,9 @@ export function ClientScreen() {
           </svg>
           Клиенты
         </button>
-        <button className={styles.editBtn} onClick={() => setEditOpen(true)}>
-          Изменить
-        </button>
+        {subscriptionActive && (
+          <button className={styles.editBtn} onClick={() => setEditOpen(true)}>Изменить</button>
+        )}
       </div>
 
       <div className={styles.hero}>
@@ -80,16 +80,10 @@ export function ClientScreen() {
 
       <div className="screen-content">
         <div className={styles.actions}>
-          <ActionButton
-            icon="📅"
-            label="Занятия"
-            onClick={() => setActiveScreen('sessions')}
-          />
-          <ActionButton
-            icon="📁"
-            label="Материалы"
-            onClick={() => setActiveScreen('materials')}
-          />
+          <ActionButton icon="📅" label="Занятия" onClick={() => setActiveScreen('sessions')} />
+          {subscriptionActive && (
+            <ActionButton icon="📁" label="Материалы" onClick={() => setActiveScreen('materials')} />
+          )}
         </div>
 
         {client.meeting_url && (
@@ -104,21 +98,35 @@ export function ClientScreen() {
           </Card>
         )}
 
-        <Card className={styles.infoCard} variant="flat">
-          <p className={styles.sectionLabel}>Напоминания</p>
-          <div className={styles.reminderRow}>
-            <span className={styles.reminderText}>
-              {client.reminders_enabled ? '✅ Включены' : '⬜ Выключены'}
-            </span>
-            {client.reminder_text && (
-              <span className={styles.reminderMsg}>«{client.reminder_text}»</span>
-            )}
-          </div>
-        </Card>
+        {subscriptionActive && (
+          <Card className={styles.infoCard} variant="flat">
+            <p className={styles.sectionLabel}>Напоминания</p>
+            <div className={styles.reminderRow}>
+              <span className={styles.reminderText}>
+                {client.reminders_enabled ? '✅ Включены' : '⬜ Выключены'}
+              </span>
+              {client.reminder_text && (
+                <span className={styles.reminderMsg}>«{client.reminder_text}»</span>
+              )}
+            </div>
+          </Card>
+        )}
 
-        <button className={styles.deleteBtn} onClick={() => setDeleteOpen(true)}>
-          Удалить клиента
-        </button>
+        {!subscriptionActive && (
+          <Card variant="flat" className={styles.infoCard}>
+            <p className={styles.sectionLabel}>Полный доступ</p>
+            <p className={styles.reminderText}>Материалы, напоминания и звонки доступны по подписке</p>
+            <Button variant="secondary" size="md" style={{ marginTop: 12, width: '100%' }} onClick={() => setActiveScreen('subscription')}>
+              Оформить подписку
+            </Button>
+          </Card>
+        )}
+
+        {subscriptionActive && (
+          <button className={styles.deleteBtn} onClick={() => setDeleteOpen(true)}>
+            Удалить клиента
+          </button>
+        )}
       </div>
 
       <BottomSheet open={editOpen} onClose={() => setEditOpen(false)} title="Редактировать клиента">
