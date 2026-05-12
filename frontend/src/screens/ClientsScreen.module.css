@@ -30,3 +30,33 @@
   margin-top: 2px;
   flex-shrink: 0;
 }
+
+.freeBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 20px 8px;
+  padding: 12px 14px;
+  background: var(--blue-light);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+}
+.freeBannerTitle {
+  font-weight: 600;
+  color: var(--blue-dark);
+  margin-bottom: 2px;
+}
+.freeBannerText {
+  color: var(--blue-text);
+  line-height: 1.4;
+}
+.freeBannerBtn {
+  background: none;
+  color: var(--blue-dark);
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  padding: 0;
+  margin-top: 2px;
+  flex-shrink: 0;
+}

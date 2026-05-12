@@ -8,3 +8,14 @@
   padding: 4px 10px;
   border-radius: var(--radius-sm);
 }
+
+.joinLink {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--blue-text);
+  background: var(--blue-light);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+}
