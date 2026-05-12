@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useAppStore } from '../store'
 import { Card } from '../components/ui/Card'
+import api from '../api'
 import styles from './ClientViewScreen.module.css'
-
-const BASE_URL = 'https://squeamish-progress-roster.ngrok-free.dev/api/v1'
 
 function formatDateTime(dateStr) {
   const d = new Date(dateStr)
@@ -37,30 +36,20 @@ function groupSessions(sessions) {
 
 export function ClientViewScreen() {
   const { setRole } = useAppStore()
-  const [sessions, setSessions] = useState([])
   const [clientInfo, setClientInfo] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const tg = window.Telegram?.WebApp
-    const tgId = tg?.initDataUnsafe?.user?.id
+    const tgId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id
     if (!tgId) { setLoading(false); return }
 
-    fetch(`${BASE_URL}/clients/by-tg/${tgId}`, {
-      headers: { 'ngrok-skip-browser-warning': 'true' },
-    })
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (data) {
-          setClientInfo(data)
-          setSessions(data.sessions || [])
-        }
-      })
+    api.get(`/clients/by-tg/${tgId}`)
+      .then(r => setClientInfo(r.data))
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
 
-  const groups = groupSessions(sessions)
+  const groups = clientInfo ? groupSessions(clientInfo.sessions || []) : {}
   const hasUpcoming = Object.keys(groups).length > 0
 
   return (
@@ -115,7 +104,6 @@ export function ClientViewScreen() {
                           target="_blank"
                           rel="noreferrer"
                           className={styles.joinBtn}
-                          onClick={e => e.stopPropagation()}
                         >
                           Войти →
                         </a>
