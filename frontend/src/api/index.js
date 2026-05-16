@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const BASE_URL = 'https://squeamish-progress-roster.ngrok-free.dev/api/v1'
+const BASE_URL = 'https://freedom-b3m3.onrender.com/api/v1'
 
 const api = axios.create({
   baseURL: BASE_URL,
