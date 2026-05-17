@@ -1,10 +1,10 @@
+import { useState } from 'react'
 import { useAppStore } from '../store'
 import { subscriptionApi } from '../api'
+import api from '../api'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import styles from './SubscriptionScreen.module.css'
-
-const PAYMENT_URL = 'https://yookassa.ru/my/i/agDO8i12AyV0/l'
 
 const FEATURES = [
   { icon: '👥', text: 'Ведение клиентов' },
@@ -15,8 +15,24 @@ const FEATURES = [
   { icon: '💳', text: 'Учёт оплат' },
 ]
 
+const FALLBACK_URL = 'https://yookassa.ru/my/i/agDO8i12AyV0/l'
+
 export function SubscriptionScreen() {
   const { user, subscriptionActive, setUser } = useAppStore()
+  const [loadingPay, setLoadingPay] = useState(false)
+
+  const handlePay = async () => {
+    setLoadingPay(true)
+    try {
+      const res = await api.get('/subscription/payment-url')
+      const url = res.data?.url || FALLBACK_URL
+      window.open(url, '_blank')
+    } catch {
+      window.open(FALLBACK_URL, '_blank')
+    } finally {
+      setLoadingPay(false)
+    }
+  }
 
   const handleConfirm = async () => {
     try {
@@ -64,11 +80,15 @@ export function SubscriptionScreen() {
               ))}
             </div>
 
-            <a href={PAYMENT_URL} target="_blank" rel="noreferrer" style={{ display: 'block' }}>
-              <Button variant="primary" size="lg" style={{ width: '100%' }}>
-                Оплатить подписку — 599 ₽
-              </Button>
-            </a>
+            <Button
+              variant="primary"
+              size="lg"
+              style={{ width: '100%' }}
+              onClick={handlePay}
+              disabled={loadingPay}
+            >
+              {loadingPay ? 'Загрузка...' : 'Оплатить подписку — 599 ₽'}
+            </Button>
 
             <button className={styles.confirmBtn} onClick={handleConfirm}>
               Я уже оплатил — подтвердить
