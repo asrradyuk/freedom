@@ -42,6 +42,8 @@ class User(Base):
     tg_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False)
     username: Mapped[str | None] = mapped_column(String(64))
     first_name: Mapped[str | None] = mapped_column(String(128))
+    display_name: Mapped[str | None] = mapped_column(String(128))
+    avatar_url: Mapped[str | None] = mapped_column(String(512))
 
     subscription_status: Mapped[SubscriptionStatus] = mapped_column(
         Enum(SubscriptionStatus), default=SubscriptionStatus.inactive

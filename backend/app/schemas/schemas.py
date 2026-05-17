@@ -14,10 +14,17 @@ class UserOut(BaseModel):
     tg_id: int
     username: str | None
     first_name: str | None
+    display_name: str | None
+    avatar_url: str | None
     subscription_status: SubscriptionStatus
     subscription_expires_at: datetime | None
 
     model_config = {"from_attributes": True}
+
+
+class UserUpdate(BaseModel):
+    display_name: str | None = Field(default=None, min_length=1, max_length=128)
+    avatar_url: str | None = None
 
 
 class ClientCreate(BaseModel):
