@@ -13,6 +13,7 @@ import { ProfileScreen } from './screens/ProfileScreen'
 import { RoleSelectScreen } from './screens/RoleSelectScreen'
 import { ClientViewScreen } from './screens/ClientViewScreen'
 import { CallScreen } from './screens/CallScreen'
+import { OnboardingScreen } from './screens/OnboardingScreen'
 
 function LoadingScreen() {
   return (
@@ -42,7 +43,7 @@ const SPECIALIST_SCREENS = {
 
 export default function App() {
   useTelegram()
-  const { activeScreen, setUser, setClients, role } = useAppStore()
+  const { activeScreen, setUser, setClients, role, onboardingDone, completeOnboarding } = useAppStore()
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
@@ -60,6 +61,9 @@ export default function App() {
   if (!ready) return <LoadingScreen />
   if (!role) return <RoleSelectScreen />
   if (role === 'client') return <ClientViewScreen />
+  if (role === 'specialist' && !onboardingDone) {
+    return <OnboardingScreen onDone={completeOnboarding} />
+  }
 
   const Screen = SPECIALIST_SCREENS[activeScreen] || HomeScreen
   const hideNav = ['client', 'sessions', 'materials', 'call'].includes(activeScreen)

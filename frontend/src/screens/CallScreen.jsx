@@ -5,7 +5,7 @@ import {
   Track,
 } from 'livekit-client'
 import { livekitApi } from '../api'
-import { useAppStore } from '../store'
+import { useAppStore } from '../store/store'
 import styles from './CallScreen.module.css'
 
 export function CallScreen() {

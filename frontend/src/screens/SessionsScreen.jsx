@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { sessionsApi } from '../api'
-import { useAppStore } from '../store'
+import { useAppStore } from '../store/store'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { BottomSheet } from '../components/ui/BottomSheet'

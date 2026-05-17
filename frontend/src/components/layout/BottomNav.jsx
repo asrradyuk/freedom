@@ -1,5 +1,5 @@
 import styles from './BottomNav.module.css'
-import { useAppStore } from '../../store'
+import { useAppStore } from '../../store/store'
 
 const NAV_ITEMS = [
   {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { sessionsApi, clientsApi } from '../api'
-import { useAppStore } from '../store'
+import { useAppStore } from '../store/store'
 import { Card } from '../components/ui/Card'
 import styles from './HomeScreen.module.css'
 

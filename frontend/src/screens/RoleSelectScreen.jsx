@@ -1,4 +1,4 @@
-import { useAppStore } from '../store'
+import { useAppStore } from '../store/store'
 import styles from './RoleSelectScreen.module.css'
 
 export function RoleSelectScreen() {

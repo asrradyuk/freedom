@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useAppStore } from '../store'
+import { useAppStore } from '../store/store'
 import { Card } from '../components/ui/Card'
 import api from '../api'
 import styles from './ClientViewScreen.module.css'
