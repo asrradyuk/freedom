@@ -9,6 +9,7 @@ import { ClientScreen } from './screens/ClientScreen'
 import { SessionsScreen } from './screens/SessionsScreen'
 import { MaterialsScreen } from './screens/MaterialsScreen'
 import { SubscriptionScreen } from './screens/SubscriptionScreen'
+import { ProfileScreen } from './screens/ProfileScreen'
 import { RoleSelectScreen } from './screens/RoleSelectScreen'
 import { ClientViewScreen } from './screens/ClientViewScreen'
 import { CallScreen } from './screens/CallScreen'
@@ -35,6 +36,7 @@ const SPECIALIST_SCREENS = {
   sessions: SessionsScreen,
   materials: MaterialsScreen,
   subscription: SubscriptionScreen,
+  profile: ProfileScreen,
   call: CallScreen,
 }
 

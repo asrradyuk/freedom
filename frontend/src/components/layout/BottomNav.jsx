@@ -27,7 +27,7 @@ const NAV_ITEMS = [
     ),
   },
   {
-    id: 'subscription',
+    id: 'profile',
     label: 'Аккаунт',
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -47,7 +47,7 @@ export function BottomNav() {
     window.Telegram?.WebApp?.HapticFeedback?.selectionChanged()
   }
 
-  if (activeScreen === 'client' || activeScreen === 'sessions' || activeScreen === 'materials') {
+  if (['client', 'sessions', 'materials', 'call'].includes(activeScreen)) {
     return null
   }
 
