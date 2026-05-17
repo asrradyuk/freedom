@@ -1,5 +1,4 @@
 from typing import Any
-
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -16,6 +15,9 @@ class Settings(BaseSettings):
     LIVEKIT_API_SECRET: str
 
     PAYMENT_URL: str = ""
+    WEBAPP_URL: str = "https://freedom-ouep.vercel.app"
+    YUKASSA_SHOP_ID: str = ""
+    YUKASSA_SECRET_KEY: str = ""
     ADMIN_IDS: list[int] = []
     UPLOAD_DIR: str = "uploads"
     MAX_FILE_SIZE_MB: int = 50
