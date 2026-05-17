@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { materialsApi } from '../api'
-import { useAppStore } from '../store/store'
+import { useAppStore } from '../store'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import styles from './MaterialsScreen.module.css'

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useAppStore } from '../store/store'
+import { useAppStore } from '../store'
 import { subscriptionApi } from '../api'
 import api from '../api'
 import { Button } from '../components/ui/Button'
