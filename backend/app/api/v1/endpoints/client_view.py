@@ -11,11 +11,26 @@ from app.models.models import Client
 router = APIRouter()
 
 
+class SessionOut(BaseModel):
+    id: str
+    scheduled_at: str
+    payment_status: str
+
+
+class MaterialOut(BaseModel):
+    id: str
+    original_name: str
+    file_size: int
+    mime_type: str | None
+
+
 class ClientViewOut(BaseModel):
-    client_id: uuid.UUID
+    client_id: str
     specialist_name: str | None
     meeting_url: str | None
+    livekit_room: str | None
     sessions: list[dict]
+    materials: list[dict]
 
     model_config = {"from_attributes": True}
 
@@ -29,6 +44,7 @@ async def get_client_by_tg(
         select(Client)
         .options(
             selectinload(Client.sessions),
+            selectinload(Client.materials),
             selectinload(Client.specialist),
         )
         .where(Client.client_tg_id == tg_id)
@@ -46,9 +62,21 @@ async def get_client_by_tg(
         for s in client.sessions
     ]
 
+    materials = [
+        {
+            "id": str(m.id),
+            "original_name": m.original_name,
+            "file_size": m.file_size,
+            "mime_type": m.mime_type,
+        }
+        for m in client.materials
+    ]
+
     return ClientViewOut(
-        client_id=client.id,
+        client_id=str(client.id),
         specialist_name=client.specialist.first_name if client.specialist else None,
         meeting_url=client.meeting_url,
+        livekit_room=client.livekit_room,
         sessions=sessions,
+        materials=materials,
     )
