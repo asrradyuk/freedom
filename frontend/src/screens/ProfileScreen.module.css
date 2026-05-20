@@ -145,3 +145,21 @@
 .infoLabel { font-size: 13px; color: var(--gray-mid); }
 .infoValue { font-size: 13px; font-weight: 500; color: var(--gray-dark); }
 .infoLink { font-size: 13px; font-weight: 500; color: var(--blue-text); }
+
+.switchRoleBtn {
+  width: 100%;
+  background: none;
+  font-size: 14px;
+  color: var(--gray-mid);
+  padding: 16px;
+  margin-top: 8px;
+  border: 1.5px solid var(--gray-light);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.switchRoleBtn:hover {
+  border-color: var(--gray-mid);
+  color: var(--gray-dark);
+}

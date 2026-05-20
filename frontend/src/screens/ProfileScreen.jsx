@@ -9,7 +9,7 @@ import styles from './ProfileScreen.module.css'
 const BASE_URL = 'https://freedom-b3m3.onrender.com'
 
 export function ProfileScreen() {
-  const { user, setUser, setActiveScreen, subscriptionActive } = useAppStore()
+  const { user, setUser, setActiveScreen, subscriptionActive, setRole } = useAppStore()
   const [editing, setEditing] = useState(false)
   const [displayName, setDisplayName] = useState('')
   const [saving, setSaving] = useState(false)
@@ -63,6 +63,11 @@ export function ProfileScreen() {
       setUploadingAvatar(false)
       e.target.value = ''
     }
+  }
+
+  const handleSwitchRole = () => {
+    setRole(null)
+    window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('medium')
   }
 
   const tgLink = user?.username ? `https://t.me/${user.username}` : null
@@ -165,6 +170,10 @@ export function ProfileScreen() {
             </div>
           )}
         </Card>
+
+        <button className={styles.switchRoleBtn} onClick={handleSwitchRole}>
+          Сменить роль
+        </button>
       </div>
     </div>
   )

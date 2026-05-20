@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ClientCallScreen } from './ClientCallScreen'
 import { useAppStore } from '../store'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -93,7 +94,7 @@ export function ClientViewScreen() {
   }
 
   if (callToken) {
-    return <ClientCallScreen token={callToken} onLeave={() => setCallToken(null)} />
+    return <ClientCallScreen token={callToken.token} url={callToken.url} onLeave={() => setCallToken(null)} />
   }
 
   const groups = clientInfo ? groupSessions(clientInfo.sessions || []) : {}
@@ -227,24 +228,6 @@ export function ClientViewScreen() {
           )
         )}
       </div>
-    </div>
-  )
-}
-
-function ClientCallScreen({ token, onLeave }) {
-  useEffect(() => {
-    const { Room, RoomEvent, Track } = require('livekit-client')
-  }, [])
-
-  return (
-    <div style={{ height: '100dvh', background: '#1C1C1E', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-      <p style={{ color: '#fff', fontSize: 17, fontWeight: 600 }}>Подключение к звонку...</p>
-      <button
-        onClick={onLeave}
-        style={{ background: '#FF453A', color: '#fff', border: 'none', borderRadius: 20, padding: '12px 28px', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}
-      >
-        Выйти
-      </button>
     </div>
   )
 }
