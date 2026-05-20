@@ -1,9 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import {
-  Room,
-  RoomEvent,
-  Track,
-} from 'livekit-client'
+import { Room, RoomEvent, Track } from 'livekit-client'
 import { livekitApi } from '../api'
 import { useAppStore } from '../store'
 import styles from './CallScreen.module.css'
@@ -53,35 +49,27 @@ export function CallScreen() {
   }, [])
 
   useEffect(() => {
-    let room
-
     const connect = async () => {
       try {
         const res = await livekitApi.getToken(currentClient.id)
         const { token, url } = res.data
 
-        room = new Room({ adaptiveStream: true, dynacast: true })
+        const room = new Room({ adaptiveStream: true, dynacast: true })
         roomRef.current = room
 
         room.on(RoomEvent.ParticipantConnected, () => updateParticipants(room))
         room.on(RoomEvent.ParticipantDisconnected, () => updateParticipants(room))
         room.on(RoomEvent.TrackSubscribed, () => updateParticipants(room))
         room.on(RoomEvent.TrackUnsubscribed, () => updateParticipants(room))
-        room.on(RoomEvent.LocalTrackPublished, () => updateParticipants(room))
         room.on(RoomEvent.Disconnected, () => setActiveScreen('client'))
 
         await room.connect(url, token)
         await room.localParticipant.enableCameraAndMicrophone()
 
-        const videoTrack = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track
-        if (videoTrack && localVideoRef.current) {
-          videoTrack.attach(localVideoRef.current)
-        }
-
         setStatus('connected')
         timerRef.current = setInterval(() => setDuration(d => d + 1), 1000)
         updateParticipants(room)
-      } catch (e) {
+      } catch {
         setError('Не удалось подключиться к звонку')
         setStatus('error')
       }
@@ -91,9 +79,20 @@ export function CallScreen() {
 
     return () => {
       clearInterval(timerRef.current)
-      if (roomRef.current) roomRef.current.disconnect()
+      roomRef.current?.disconnect()
     }
   }, [])
+
+  useEffect(() => {
+    if (status !== 'connected') return
+    const room = roomRef.current
+    if (!room || !localVideoRef.current) return
+    const track = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track
+    if (track) track.attach(localVideoRef.current)
+    return () => {
+      if (track && localVideoRef.current) track.detach(localVideoRef.current)
+    }
+  }, [status])
 
   const toggleMic = async () => {
     const room = roomRef.current
@@ -105,15 +104,16 @@ export function CallScreen() {
   const toggleCam = async () => {
     const room = roomRef.current
     if (!room) return
-    await room.localParticipant.setCameraEnabled(!camOn)
-    if (camOn) {
+    const enabling = !camOn
+    await room.localParticipant.setCameraEnabled(enabling)
+    if (!enabling) {
       const t = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track
       if (t && localVideoRef.current) t.detach(localVideoRef.current)
     } else {
       setTimeout(() => {
         const t = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track
         if (t && localVideoRef.current) t.attach(localVideoRef.current)
-      }, 500)
+      }, 300)
     }
     setCamOn(v => !v)
   }
@@ -124,13 +124,15 @@ export function CallScreen() {
     try {
       if (!screenSharing) {
         await room.localParticipant.setScreenShareEnabled(true)
-        const t = room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track
-        if (t && screenVideoRef.current) t.attach(screenVideoRef.current)
+        setTimeout(() => {
+          const t = room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track
+          if (t && screenVideoRef.current) t.attach(screenVideoRef.current)
+        }, 300)
         setScreenSharing(true)
       } else {
-        await room.localParticipant.setScreenShareEnabled(false)
         const t = room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track
         if (t && screenVideoRef.current) t.detach(screenVideoRef.current)
+        await room.localParticipant.setScreenShareEnabled(false)
         setScreenSharing(false)
       }
     } catch {
@@ -140,7 +142,7 @@ export function CallScreen() {
 
   const hangUp = async () => {
     clearInterval(timerRef.current)
-    if (roomRef.current) await roomRef.current.disconnect()
+    await roomRef.current?.disconnect()
     setActiveScreen('client')
   }
 
@@ -215,20 +217,17 @@ export function CallScreen() {
         )}
 
         <div className={styles.localVideoWrap}>
-          {camOn ? (
-            <video ref={localVideoRef} autoPlay muted playsInline className={styles.localVideo} />
-          ) : (
-            <div className={styles.localVideoOff}>
-              <span>{currentClient.name.charAt(0).toUpperCase()}</span>
-            </div>
-          )}
+          {camOn
+            ? <video ref={localVideoRef} autoPlay muted playsInline className={styles.localVideo} />
+            : <div className={styles.localVideoOff}>{currentClient.name.charAt(0).toUpperCase()}</div>
+          }
         </div>
       </div>
 
       <div className={styles.controls}>
         <ControlBtn icon={micOn ? '🎤' : '🔇'} label={micOn ? 'Микрофон' : 'Без звука'} active={!micOn} onClick={toggleMic} />
         <ControlBtn icon="📵" label="Завершить" danger large onClick={hangUp} />
-        <ControlBtn icon={camOn ? '📹' : '🚫'} label={camOn ? 'Камера' : 'Камера выкл'} active={!camOn} onClick={toggleCam} />
+        <ControlBtn icon={camOn ? '📹' : '🚫'} label={camOn ? 'Камера' : 'Выкл'} active={!camOn} onClick={toggleCam} />
         <ControlBtn icon="🖥" label={screenSharing ? 'Стоп' : 'Экран'} active={screenSharing} onClick={toggleScreenShare} />
       </div>
     </div>
@@ -240,7 +239,9 @@ function RemoteTrackVideo({ track, className }) {
   useEffect(() => {
     if (!track || !ref.current) return
     track.attach(ref.current)
-    return () => track.detach(ref.current)
+    return () => {
+      try { track.detach(ref.current) } catch {}
+    }
   }, [track])
   return <video ref={ref} autoPlay playsInline className={className} />
 }

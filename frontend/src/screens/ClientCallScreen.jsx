@@ -7,11 +7,10 @@ export function ClientCallScreen({ token, url, onLeave }) {
   const [micOn, setMicOn] = useState(true)
   const [camOn, setCamOn] = useState(true)
   const [duration, setDuration] = useState(0)
-  const [hasRemote, setHasRemote] = useState(false)
+  const [remoteVideoTrack, setRemoteVideoTrack] = useState(null)
 
   const roomRef = useRef(null)
   const localVideoRef = useRef(null)
-  const remoteVideoRef = useRef(null)
   const timerRef = useRef(null)
 
   const formatDuration = (s) => {
@@ -21,33 +20,27 @@ export function ClientCallScreen({ token, url, onLeave }) {
   }
 
   useEffect(() => {
-    let room
-
     const connect = async () => {
       try {
-        room = new Room({ adaptiveStream: true, dynacast: true })
+        const room = new Room({ adaptiveStream: true, dynacast: true })
         roomRef.current = room
 
-        room.on(RoomEvent.TrackSubscribed, (track, pub, participant) => {
-          if (track.kind === Track.Kind.Video && remoteVideoRef.current) {
-            track.attach(remoteVideoRef.current)
-            setHasRemote(true)
+        room.on(RoomEvent.TrackSubscribed, (track) => {
+          if (track.kind === Track.Kind.Video && track.source !== Track.Source.ScreenShare) {
+            setRemoteVideoTrack(track)
           }
         })
 
-        room.on(RoomEvent.TrackUnsubscribed, () => {
-          setHasRemote(false)
+        room.on(RoomEvent.TrackUnsubscribed, (track) => {
+          if (track.kind === Track.Kind.Video) {
+            setRemoteVideoTrack(null)
+          }
         })
 
         room.on(RoomEvent.Disconnected, () => onLeave())
 
         await room.connect(url, token)
         await room.localParticipant.enableCameraAndMicrophone()
-
-        const videoTrack = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track
-        if (videoTrack && localVideoRef.current) {
-          videoTrack.attach(localVideoRef.current)
-        }
 
         setStatus('connected')
         timerRef.current = setInterval(() => setDuration(d => d + 1), 1000)
@@ -60,9 +53,20 @@ export function ClientCallScreen({ token, url, onLeave }) {
 
     return () => {
       clearInterval(timerRef.current)
-      if (roomRef.current) roomRef.current.disconnect()
+      roomRef.current?.disconnect()
     }
   }, [])
+
+  useEffect(() => {
+    if (status !== 'connected' || !localVideoRef.current) return
+    const room = roomRef.current
+    if (!room) return
+    const track = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track
+    if (track) track.attach(localVideoRef.current)
+    return () => {
+      try { if (track && localVideoRef.current) track.detach(localVideoRef.current) } catch {}
+    }
+  }, [status])
 
   const toggleMic = async () => {
     await roomRef.current?.localParticipant.setMicrophoneEnabled(!micOn)
@@ -70,22 +74,25 @@ export function ClientCallScreen({ token, url, onLeave }) {
   }
 
   const toggleCam = async () => {
-    await roomRef.current?.localParticipant.setCameraEnabled(!camOn)
-    if (camOn) {
-      const t = roomRef.current?.localParticipant.getTrackPublication(Track.Source.Camera)?.track
+    const room = roomRef.current
+    if (!room) return
+    const enabling = !camOn
+    await room.localParticipant.setCameraEnabled(enabling)
+    if (!enabling) {
+      const t = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track
       if (t && localVideoRef.current) t.detach(localVideoRef.current)
     } else {
       setTimeout(() => {
-        const t = roomRef.current?.localParticipant.getTrackPublication(Track.Source.Camera)?.track
+        const t = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track
         if (t && localVideoRef.current) t.attach(localVideoRef.current)
-      }, 500)
+      }, 300)
     }
     setCamOn(v => !v)
   }
 
   const hangUp = async () => {
     clearInterval(timerRef.current)
-    if (roomRef.current) await roomRef.current.disconnect()
+    await roomRef.current?.disconnect()
     onLeave()
   }
 
@@ -93,7 +100,6 @@ export function ClientCallScreen({ token, url, onLeave }) {
     return (
       <div className={styles.screen}>
         <div className={styles.centerState}>
-          <div className={styles.avatar}>📹</div>
           <p className={styles.clientName}>Подключение...</p>
           <div className={styles.dots}><span /><span /><span /></div>
         </div>
@@ -127,14 +133,15 @@ export function ClientCallScreen({ token, url, onLeave }) {
       </div>
 
       <div className={styles.videoArea}>
-        {hasRemote ? (
-          <video ref={remoteVideoRef} autoPlay playsInline className={styles.mainVideo} />
+        {remoteVideoTrack ? (
+          <RemoteTrackVideo track={remoteVideoTrack} className={styles.mainVideo} />
         ) : (
           <div className={styles.waitingState}>
             <div className={styles.avatarLg}>👨‍🏫</div>
             <p className={styles.waitingText}>Ожидание специалиста...</p>
           </div>
         )}
+
         <div className={styles.localVideoWrap}>
           {camOn
             ? <video ref={localVideoRef} autoPlay muted playsInline className={styles.localVideo} />
@@ -146,10 +153,22 @@ export function ClientCallScreen({ token, url, onLeave }) {
       <div className={styles.controls}>
         <ControlBtn icon={micOn ? '🎤' : '🔇'} label={micOn ? 'Микрофон' : 'Без звука'} active={!micOn} onClick={toggleMic} />
         <ControlBtn icon="📵" label="Завершить" danger large onClick={hangUp} />
-        <ControlBtn icon={camOn ? '📹' : '🚫'} label={camOn ? 'Камера' : 'Выкл' } active={!camOn} onClick={toggleCam} />
+        <ControlBtn icon={camOn ? '📹' : '🚫'} label={camOn ? 'Камера' : 'Выкл'} active={!camOn} onClick={toggleCam} />
       </div>
     </div>
   )
+}
+
+function RemoteTrackVideo({ track, className }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    if (!track || !ref.current) return
+    track.attach(ref.current)
+    return () => {
+      try { track.detach(ref.current) } catch {}
+    }
+  }, [track])
+  return <video ref={ref} autoPlay playsInline className={className} />
 }
 
 function ControlBtn({ icon, label, onClick, danger, active, large }) {
