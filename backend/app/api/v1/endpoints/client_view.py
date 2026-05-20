@@ -11,19 +11,6 @@ from app.models.models import Client
 router = APIRouter()
 
 
-class SessionOut(BaseModel):
-    id: str
-    scheduled_at: str
-    payment_status: str
-
-
-class MaterialOut(BaseModel):
-    id: str
-    original_name: str
-    file_size: int
-    mime_type: str | None
-
-
 class ClientViewOut(BaseModel):
     client_id: str
     specialist_name: str | None
@@ -48,6 +35,8 @@ async def get_client_by_tg(
             selectinload(Client.specialist),
         )
         .where(Client.client_tg_id == tg_id)
+        .order_by(Client.created_at.desc())
+        .limit(1)
     )
     client = result.scalar_one_or_none()
     if not client:
