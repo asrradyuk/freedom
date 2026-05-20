@@ -1,4 +1,5 @@
 import uuid
+from datetime import timedelta
 
 from livekit.api import AccessToken, VideoGrants
 
@@ -13,5 +14,12 @@ def generate_token(room: str, participant_identity: str, participant_name: str) 
     token = AccessToken(settings.LIVEKIT_API_KEY, settings.LIVEKIT_API_SECRET)
     token.with_identity(participant_identity)
     token.with_name(participant_name)
-    token.with_grants(VideoGrants(room_join=True, room=room))
+    token.with_grants(VideoGrants(
+        room_join=True,
+        room=room,
+        can_publish=True,
+        can_subscribe=True,
+        can_publish_data=True,
+    ))
+    token.with_ttl(timedelta(hours=4))
     return token.to_jwt()
