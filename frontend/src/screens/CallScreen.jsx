@@ -4,13 +4,19 @@ import { livekitApi } from '../api'
 import { useAppStore } from '../store'
 import styles from './CallScreen.module.css'
 
+function stopCamera() {
+  navigator.mediaDevices?.getUserMedia({ video: true, audio: true })
+    .then(stream => stream.getTracks().forEach(t => t.stop()))
+    .catch(() => {})
+}
+
 export function CallScreen() {
   const { currentClient, setActiveScreen } = useAppStore()
   const [status, setStatus] = useState('connecting')
   const [micOn, setMicOn] = useState(true)
   const [camOn, setCamOn] = useState(true)
   const [screenSharing, setScreenSharing] = useState(false)
-  const [participants, setParticipants] = useState([])
+  const [remoteTracks, setRemoteTracks] = useState({ video: null, screen: null })
   const [error, setError] = useState(null)
   const [duration, setDuration] = useState(0)
 
@@ -25,73 +31,91 @@ export function CallScreen() {
     return `${m}:${sec}`
   }
 
-  const updateParticipants = useCallback((room) => {
-    const parts = []
+  const refreshRemote = useCallback((room) => {
+    let video = null
+    let screen = null
     room.remoteParticipants.forEach(p => {
-      const videoTrack = [...p.trackPublications.values()].find(
-        pub => pub.track?.kind === Track.Kind.Video &&
-               pub.isSubscribed &&
-               pub.source !== Track.Source.ScreenShare
-      )
-      const screenTrack = [...p.trackPublications.values()].find(
-        pub => pub.track?.kind === Track.Kind.Video &&
-               pub.isSubscribed &&
-               pub.source === Track.Source.ScreenShare
-      )
-      parts.push({
-        identity: p.identity,
-        name: p.name || p.identity,
-        videoTrack: videoTrack?.track || null,
-        screenTrack: screenTrack?.track || null,
+      p.trackPublications.forEach(pub => {
+        if (!pub.track || !pub.isSubscribed || pub.track.kind !== Track.Kind.Video) return
+        if (pub.source === Track.Source.ScreenShare) screen = pub.track
+        else video = pub.track
       })
     })
-    setParticipants([...parts])
+    setRemoteTracks({ video, screen })
   }, [])
 
   useEffect(() => {
+    let mounted = true
+
     const connect = async () => {
       try {
         const res = await livekitApi.getToken(currentClient.id)
         const { token, url } = res.data
 
-        const room = new Room({ adaptiveStream: true, dynacast: true })
+        const room = new Room({
+          adaptiveStream: false,
+          dynacast: false,
+          videoCaptureDefaults: { resolution: { width: 640, height: 480, frameRate: 24 } },
+        })
         roomRef.current = room
 
-        room.on(RoomEvent.ParticipantConnected, () => updateParticipants(room))
-        room.on(RoomEvent.ParticipantDisconnected, () => updateParticipants(room))
-        room.on(RoomEvent.TrackSubscribed, () => updateParticipants(room))
-        room.on(RoomEvent.TrackUnsubscribed, () => updateParticipants(room))
-        room.on(RoomEvent.Disconnected, () => setActiveScreen('client'))
+        room.on(RoomEvent.TrackSubscribed, () => refreshRemote(room))
+        room.on(RoomEvent.TrackUnsubscribed, () => refreshRemote(room))
+        room.on(RoomEvent.ParticipantDisconnected, () => refreshRemote(room))
+        room.on(RoomEvent.Disconnected, () => {
+          if (mounted) {
+            clearInterval(timerRef.current)
+            setActiveScreen('client')
+          }
+        })
 
         await room.connect(url, token)
-        await room.localParticipant.enableCameraAndMicrophone()
+        if (!mounted) { room.disconnect(); return }
 
-        setStatus('connected')
-        timerRef.current = setInterval(() => setDuration(d => d + 1), 1000)
-        updateParticipants(room)
-      } catch {
-        setError('Не удалось подключиться к звонку')
-        setStatus('error')
+        await room.localParticipant.enableCameraAndMicrophone()
+        if (!mounted) { room.disconnect(); return }
+
+        if (mounted) {
+          setStatus('connected')
+          timerRef.current = setInterval(() => setDuration(d => d + 1), 1000)
+          refreshRemote(room)
+        }
+      } catch (e) {
+        if (mounted) {
+          setError('Не удалось подключиться. Проверьте камеру и микрофон.')
+          setStatus('error')
+        }
       }
     }
 
     connect()
 
     return () => {
+      mounted = false
       clearInterval(timerRef.current)
-      roomRef.current?.disconnect()
+      const room = roomRef.current
+      if (room) {
+        room.localParticipant?.getTrackPublications().forEach(pub => {
+          pub.track?.stop()
+        })
+        room.disconnect()
+      }
     }
   }, [])
 
   useEffect(() => {
-    if (status !== 'connected') return
+    if (status !== 'connected' || !localVideoRef.current) return
     const room = roomRef.current
-    if (!room || !localVideoRef.current) return
-    const track = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track
-    if (track) track.attach(localVideoRef.current)
-    return () => {
-      if (track && localVideoRef.current) track.detach(localVideoRef.current)
+    if (!room) return
+    const tryAttach = () => {
+      const pub = room.localParticipant.getTrackPublication(Track.Source.Camera)
+      if (pub?.track && localVideoRef.current) {
+        pub.track.attach(localVideoRef.current)
+      }
     }
+    tryAttach()
+    const t = setTimeout(tryAttach, 500)
+    return () => clearTimeout(t)
   }, [status])
 
   const toggleMic = async () => {
@@ -104,36 +128,29 @@ export function CallScreen() {
   const toggleCam = async () => {
     const room = roomRef.current
     if (!room) return
-    const enabling = !camOn
-    await room.localParticipant.setCameraEnabled(enabling)
-    if (!enabling) {
-      const t = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track
-      if (t && localVideoRef.current) t.detach(localVideoRef.current)
-    } else {
+    const next = !camOn
+    await room.localParticipant.setCameraEnabled(next)
+    setCamOn(next)
+    if (next) {
       setTimeout(() => {
-        const t = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track
-        if (t && localVideoRef.current) t.attach(localVideoRef.current)
-      }, 300)
+        const pub = room.localParticipant.getTrackPublication(Track.Source.Camera)
+        if (pub?.track && localVideoRef.current) pub.track.attach(localVideoRef.current)
+      }, 400)
     }
-    setCamOn(v => !v)
   }
 
   const toggleScreenShare = async () => {
     const room = roomRef.current
     if (!room) return
     try {
-      if (!screenSharing) {
-        await room.localParticipant.setScreenShareEnabled(true)
+      const next = !screenSharing
+      await room.localParticipant.setScreenShareEnabled(next)
+      setScreenSharing(next)
+      if (next) {
         setTimeout(() => {
-          const t = room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track
-          if (t && screenVideoRef.current) t.attach(screenVideoRef.current)
-        }, 300)
-        setScreenSharing(true)
-      } else {
-        const t = room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track
-        if (t && screenVideoRef.current) t.detach(screenVideoRef.current)
-        await room.localParticipant.setScreenShareEnabled(false)
-        setScreenSharing(false)
+          const pub = room.localParticipant.getTrackPublication(Track.Source.ScreenShare)
+          if (pub?.track && screenVideoRef.current) pub.track.attach(screenVideoRef.current)
+        }, 400)
       }
     } catch {
       setScreenSharing(false)
@@ -142,7 +159,11 @@ export function CallScreen() {
 
   const hangUp = async () => {
     clearInterval(timerRef.current)
-    await roomRef.current?.disconnect()
+    const room = roomRef.current
+    if (room) {
+      room.localParticipant?.getTrackPublications().forEach(pub => pub.track?.stop())
+      await room.disconnect()
+    }
     setActiveScreen('client')
   }
 
@@ -156,7 +177,7 @@ export function CallScreen() {
           <div className={styles.dots}><span /><span /><span /></div>
         </div>
         <div className={styles.controls}>
-          <ControlBtn icon="✕" label="Отмена" danger onClick={() => setActiveScreen('client')} />
+          <ControlBtn icon="✕" label="Отмена" danger onClick={hangUp} />
         </div>
       </div>
     )
@@ -167,7 +188,6 @@ export function CallScreen() {
       <div className={styles.screen}>
         <div className={styles.centerState}>
           <div className={styles.avatar}>{currentClient.name.charAt(0).toUpperCase()}</div>
-          <p className={styles.clientName}>{currentClient.name}</p>
           <p className={styles.errorText}>{error}</p>
         </div>
         <div className={styles.controls}>
@@ -177,13 +197,11 @@ export function CallScreen() {
     )
   }
 
-  const remoteParticipant = participants[0] || null
-  const remoteScreen = remoteParticipant?.screenTrack || null
   const mainContent = screenSharing
     ? 'local-screen'
-    : remoteScreen
+    : remoteTracks.screen
     ? 'remote-screen'
-    : remoteParticipant?.videoTrack
+    : remoteTracks.video
     ? 'remote-video'
     : 'waiting'
 
@@ -194,7 +212,7 @@ export function CallScreen() {
           <p className={styles.headerName}>{currentClient.name}</p>
           <p className={styles.headerDuration}>{formatDuration(duration)}</p>
         </div>
-        {(screenSharing || remoteScreen) && (
+        {(screenSharing || remoteTracks.screen) && (
           <div className={styles.screenBadge}>🖥 Демонстрация</div>
         )}
       </div>
@@ -204,10 +222,10 @@ export function CallScreen() {
           <video ref={screenVideoRef} autoPlay playsInline className={styles.mainVideo} />
         )}
         {mainContent === 'remote-screen' && (
-          <RemoteTrackVideo track={remoteScreen} className={styles.mainVideo} />
+          <TrackVideo track={remoteTracks.screen} className={styles.mainVideo} />
         )}
         {mainContent === 'remote-video' && (
-          <RemoteTrackVideo track={remoteParticipant.videoTrack} className={styles.mainVideo} />
+          <TrackVideo track={remoteTracks.video} className={styles.mainVideo} />
         )}
         {mainContent === 'waiting' && (
           <div className={styles.waitingState}>
@@ -219,7 +237,7 @@ export function CallScreen() {
         <div className={styles.localVideoWrap}>
           {camOn
             ? <video ref={localVideoRef} autoPlay muted playsInline className={styles.localVideo} />
-            : <div className={styles.localVideoOff}>{currentClient.name.charAt(0).toUpperCase()}</div>
+            : <div className={styles.localVideoOff}><span>{currentClient.name.charAt(0).toUpperCase()}</span></div>
           }
         </div>
       </div>
@@ -234,14 +252,12 @@ export function CallScreen() {
   )
 }
 
-function RemoteTrackVideo({ track, className }) {
+function TrackVideo({ track, className }) {
   const ref = useRef(null)
   useEffect(() => {
     if (!track || !ref.current) return
     track.attach(ref.current)
-    return () => {
-      try { track.detach(ref.current) } catch {}
-    }
+    return () => { try { track.detach(ref.current) } catch {} }
   }, [track])
   return <video ref={ref} autoPlay playsInline className={className} />
 }
