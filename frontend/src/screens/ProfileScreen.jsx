@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useAppStore } from '../store'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
@@ -11,21 +11,31 @@ const BASE_URL = 'https://freedom-b3m3.onrender.com'
 export function ProfileScreen() {
   const { user, setUser, setActiveScreen, subscriptionActive } = useAppStore()
   const [editing, setEditing] = useState(false)
-  const [displayName, setDisplayName] = useState(user?.display_name || user?.first_name || '')
+  const [displayName, setDisplayName] = useState('')
   const [saving, setSaving] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [avatarError, setAvatarError] = useState(false)
   const fileRef = useRef()
 
-  const avatarUrl = user?.avatar_url
-    ? user.avatar_url.startsWith('http') ? user.avatar_url : `${BASE_URL}${user.avatar_url}`
-    : user?.tg_id ? `https://t.me/i/userpic/320/${user.username}.jpg` : null
+  useEffect(() => {
+    setDisplayName(user?.display_name || user?.first_name || '')
+    setAvatarError(false)
+  }, [user])
 
+  const avatarSrc = user?.avatar_url
+    ? user.avatar_url.startsWith('http')
+      ? user.avatar_url
+      : `${BASE_URL}${user.avatar_url}`
+    : null
+
+  const showAvatar = avatarSrc && !avatarError
   const initials = (user?.display_name || user?.first_name || '?').charAt(0).toUpperCase()
 
   const handleSave = async () => {
+    if (!displayName.trim()) return
     setSaving(true)
     try {
-      const res = await api.patch('/profile', { display_name: displayName })
+      const res = await api.patch('/profile', { display_name: displayName.trim() })
       setUser(res.data)
       setEditing(false)
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success')
@@ -43,10 +53,9 @@ export function ProfileScreen() {
     try {
       const form = new FormData()
       form.append('file', file)
-      const res = await api.post('/profile/avatar', form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
+      const res = await api.post('/profile/avatar', form)
       setUser(res.data)
+      setAvatarError(false)
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success')
     } catch {
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')
@@ -72,13 +81,22 @@ export function ProfileScreen() {
 
       <div className="screen-content">
         <div className={styles.avatarSection}>
-          <div className={styles.avatarWrap} onClick={() => fileRef.current?.click()}>
-            {avatarUrl ? (
-              <img src={avatarUrl} alt="avatar" className={styles.avatarImg} onError={(e) => { e.target.style.display = 'none' }} />
-            ) : null}
-            <div className={styles.avatarFallback}>{initials}</div>
+          <div
+            className={styles.avatarWrap}
+            onClick={() => !uploadingAvatar && fileRef.current?.click()}
+          >
+            {showAvatar ? (
+              <img
+                src={avatarSrc}
+                alt="avatar"
+                className={styles.avatarImg}
+                onError={() => setAvatarError(true)}
+              />
+            ) : (
+              <div className={styles.avatarFallback}>{initials}</div>
+            )}
             <div className={styles.avatarOverlay}>
-              {uploadingAvatar ? '⏳' : '📷'}
+              <span>{uploadingAvatar ? '⏳' : '📷'}</span>
             </div>
           </div>
           <input ref={fileRef} type="file" accept="image/*" hidden onChange={handleAvatarUpload} />
@@ -89,12 +107,16 @@ export function ProfileScreen() {
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder="Твоё имя"
+                autoFocus
               />
               <div style={{ display: 'flex', gap: 8 }}>
-                <Button variant="primary" size="sm" onClick={handleSave} disabled={saving}>
+                <Button variant="primary" size="sm" onClick={handleSave} disabled={saving || !displayName.trim()}>
                   {saving ? '...' : 'Сохранить'}
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
+                <Button variant="ghost" size="sm" onClick={() => {
+                  setEditing(false)
+                  setDisplayName(user?.display_name || user?.first_name || '')
+                }}>
                   Отмена
                 </Button>
               </div>
