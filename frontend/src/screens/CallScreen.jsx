@@ -1,152 +1,41 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
-import { Room, RoomEvent, Track } from 'livekit-client'
+import { useState, useEffect } from 'react'
+import { LiveKitRoom, VideoConference, useRoomContext } from '@livekit/components-react'
+import '@livekit/components-styles'
 import { livekitApi } from '../api'
 import { useAppStore } from '../store'
 import styles from './CallScreen.module.css'
 
+function HangUpButton({ onHangUp }) {
+  const room = useRoomContext()
+  const handle = async () => {
+    await room.disconnect()
+    onHangUp()
+  }
+  return (
+    <button className={styles.hangUpBtn} onClick={handle}>
+      📵 Завершить
+    </button>
+  )
+}
+
 export function CallScreen() {
   const { currentClient, setActiveScreen } = useAppStore()
-  const [status, setStatus] = useState('connecting')
-  const [micOn, setMicOn] = useState(true)
-  const [camOn, setCamOn] = useState(true)
-  const [screenSharing, setScreenSharing] = useState(false)
-  const [remoteTracks, setRemoteTracks] = useState({ video: null, screen: null })
+  const [token, setToken] = useState(null)
+  const [serverUrl, setServerUrl] = useState(null)
   const [error, setError] = useState(null)
-  const [duration, setDuration] = useState(0)
+  const [loading, setLoading] = useState(true)
 
-  const roomRef = useRef(null)
-  const localVideoRef = useRef(null)
-  const screenVideoRef = useRef(null)
-  const timerRef = useRef(null)
-  const connectingRef = useRef(false)
-
-  const formatDuration = (s) => {
-    const m = Math.floor(s / 60).toString().padStart(2, '0')
-    const sec = (s % 60).toString().padStart(2, '0')
-    return `${m}:${sec}`
-  }
-
-  const attachLocalVideo = useCallback(() => {
-    const room = roomRef.current
-    if (!room || !localVideoRef.current) return
-    const pub = room.localParticipant.getTrackPublication(Track.Source.Camera)
-    if (pub?.track) pub.track.attach(localVideoRef.current)
-  }, [])
-
-  const refreshRemote = useCallback((room) => {
-    let video = null
-    let screen = null
-    room.remoteParticipants.forEach(p => {
-      p.trackPublications.forEach(pub => {
-        if (!pub.track || !pub.isSubscribed || pub.track.kind !== Track.Kind.Video) return
-        if (pub.source === Track.Source.ScreenShare) screen = pub.track
-        else video = pub.track
+  useEffect(() => {
+    livekitApi.getToken(currentClient.id)
+      .then(r => {
+        setToken(r.data.token)
+        setServerUrl(r.data.url)
       })
-    })
-    setRemoteTracks({ video, screen })
+      .catch(() => setError('Не удалось получить токен'))
+      .finally(() => setLoading(false))
   }, [])
 
-  useEffect(() => {
-    if (connectingRef.current) return
-    connectingRef.current = true
-
-    const connect = async () => {
-      try {
-        const res = await livekitApi.getToken(currentClient.id)
-        const { token, url } = res.data
-
-        const room = new Room({
-          adaptiveStream: false,
-          dynacast: false,
-          videoCaptureDefaults: { resolution: { width: 640, height: 480, frameRate: 24 } },
-        })
-        roomRef.current = room
-
-        room.on(RoomEvent.TrackSubscribed, () => refreshRemote(room))
-        room.on(RoomEvent.TrackUnsubscribed, () => refreshRemote(room))
-        room.on(RoomEvent.ParticipantDisconnected, () => refreshRemote(room))
-        room.on(RoomEvent.Disconnected, (reason) => {
-          clearInterval(timerRef.current)
-          setActiveScreen('client')
-        })
-
-        await room.connect(url, token)
-        await room.localParticipant.enableCameraAndMicrophone()
-
-        setStatus('connected')
-        timerRef.current = setInterval(() => setDuration(d => d + 1), 1000)
-        refreshRemote(room)
-      } catch (e) {
-        setError('Не удалось подключиться. Проверьте камеру и микрофон.')
-        setStatus('error')
-      }
-    }
-
-    connect()
-
-    return () => {
-      clearInterval(timerRef.current)
-      const room = roomRef.current
-      if (room) {
-        room.localParticipant?.getTrackPublications().forEach(pub => pub.track?.stop())
-        room.disconnect()
-        roomRef.current = null
-      }
-      connectingRef.current = false
-    }
-  }, [])
-
-  useEffect(() => {
-    if (status !== 'connected') return
-    const t1 = setTimeout(attachLocalVideo, 200)
-    const t2 = setTimeout(attachLocalVideo, 1000)
-    return () => { clearTimeout(t1); clearTimeout(t2) }
-  }, [status, attachLocalVideo])
-
-  const toggleMic = async () => {
-    const room = roomRef.current
-    if (!room) return
-    await room.localParticipant.setMicrophoneEnabled(!micOn)
-    setMicOn(v => !v)
-  }
-
-  const toggleCam = async () => {
-    const room = roomRef.current
-    if (!room) return
-    const next = !camOn
-    await room.localParticipant.setCameraEnabled(next)
-    setCamOn(next)
-    if (next) setTimeout(attachLocalVideo, 400)
-  }
-
-  const toggleScreenShare = async () => {
-    const room = roomRef.current
-    if (!room) return
-    try {
-      const next = !screenSharing
-      await room.localParticipant.setScreenShareEnabled(next)
-      setScreenSharing(next)
-      if (next) {
-        setTimeout(() => {
-          const pub = room.localParticipant.getTrackPublication(Track.Source.ScreenShare)
-          if (pub?.track && screenVideoRef.current) pub.track.attach(screenVideoRef.current)
-        }, 400)
-      }
-    } catch { setScreenSharing(false) }
-  }
-
-  const hangUp = async () => {
-    clearInterval(timerRef.current)
-    const room = roomRef.current
-    if (room) {
-      room.localParticipant?.getTrackPublications().forEach(pub => pub.track?.stop())
-      await room.disconnect()
-      roomRef.current = null
-    }
-    setActiveScreen('client')
-  }
-
-  if (status === 'connecting') {
+  if (loading) {
     return (
       <div className={styles.screen}>
         <div className={styles.centerState}>
@@ -156,89 +45,42 @@ export function CallScreen() {
           <div className={styles.dots}><span /><span /><span /></div>
         </div>
         <div className={styles.controls}>
-          <ControlBtn icon="✕" label="Отмена" danger onClick={hangUp} />
+          <button className={styles.hangUpBtn} onClick={() => setActiveScreen('client')}>✕ Отмена</button>
         </div>
       </div>
     )
   }
 
-  if (status === 'error') {
+  if (error || !token) {
     return (
       <div className={styles.screen}>
         <div className={styles.centerState}>
           <div className={styles.avatar}>{currentClient.name.charAt(0).toUpperCase()}</div>
-          <p className={styles.errorText}>{error}</p>
+          <p className={styles.errorText}>{error || 'Ошибка подключения'}</p>
         </div>
         <div className={styles.controls}>
-          <ControlBtn icon="✕" label="Назад" danger onClick={() => setActiveScreen('client')} />
+          <button className={styles.hangUpBtn} onClick={() => setActiveScreen('client')}>✕ Назад</button>
         </div>
       </div>
     )
   }
 
-  const mainContent = screenSharing ? 'local-screen'
-    : remoteTracks.screen ? 'remote-screen'
-    : remoteTracks.video ? 'remote-video'
-    : 'waiting'
-
   return (
-    <div className={styles.screen}>
-      <div className={styles.header}>
-        <div className={styles.headerInfo}>
-          <p className={styles.headerName}>{currentClient.name}</p>
-          <p className={styles.headerDuration}>{formatDuration(duration)}</p>
+    <div className={styles.lkRoom}>
+      <LiveKitRoom
+        token={token}
+        serverUrl={serverUrl}
+        connect
+        video
+        audio
+        onDisconnected={() => setActiveScreen('client')}
+        style={{ height: '100dvh' }}
+      >
+        <VideoConference />
+        <div className={styles.hangUpWrap}>
+          <HangUpButton onHangUp={() => setActiveScreen('client')} />
         </div>
-        {(screenSharing || remoteTracks.screen) && (
-          <div className={styles.screenBadge}>🖥 Демонстрация</div>
-        )}
-      </div>
-
-      <div className={styles.videoArea}>
-        {mainContent === 'local-screen' && <video ref={screenVideoRef} autoPlay playsInline className={styles.mainVideo} />}
-        {mainContent === 'remote-screen' && <TrackVideo track={remoteTracks.screen} className={styles.mainVideo} />}
-        {mainContent === 'remote-video' && <TrackVideo track={remoteTracks.video} className={styles.mainVideo} />}
-        {mainContent === 'waiting' && (
-          <div className={styles.waitingState}>
-            <div className={styles.avatarLg}>{currentClient.name.charAt(0).toUpperCase()}</div>
-            <p className={styles.waitingText}>Ожидание участника...</p>
-          </div>
-        )}
-        <div className={styles.localVideoWrap}>
-          {camOn
-            ? <video ref={localVideoRef} autoPlay muted playsInline className={styles.localVideo} />
-            : <div className={styles.localVideoOff}><span>{currentClient.name.charAt(0).toUpperCase()}</span></div>
-          }
-        </div>
-      </div>
-
-      <div className={styles.controls}>
-        <ControlBtn icon={micOn ? '🎤' : '🔇'} label={micOn ? 'Микрофон' : 'Без звука'} active={!micOn} onClick={toggleMic} />
-        <ControlBtn icon="📵" label="Завершить" danger large onClick={hangUp} />
-        <ControlBtn icon={camOn ? '📹' : '🚫'} label={camOn ? 'Камера' : 'Выкл'} active={!camOn} onClick={toggleCam} />
-        <ControlBtn icon="🖥" label={screenSharing ? 'Стоп' : 'Экран'} active={screenSharing} onClick={toggleScreenShare} />
-      </div>
+      </LiveKitRoom>
     </div>
-  )
-}
-
-function TrackVideo({ track, className }) {
-  const ref = useRef(null)
-  useEffect(() => {
-    if (!track || !ref.current) return
-    track.attach(ref.current)
-    return () => { try { track.detach(ref.current) } catch {} }
-  }, [track])
-  return <video ref={ref} autoPlay playsInline className={className} />
-}
-
-function ControlBtn({ icon, label, onClick, danger, active, large }) {
-  return (
-    <button
-      className={`${styles.controlBtn} ${danger ? styles.danger : ''} ${active ? styles.active : ''} ${large ? styles.large : ''}`}
-      onClick={onClick}
-    >
-      <span className={styles.controlIcon}>{icon}</span>
-      <span className={styles.controlLabel}>{label}</span>
-    </button>
   )
 }
