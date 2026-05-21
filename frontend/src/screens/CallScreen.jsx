@@ -18,6 +18,7 @@ export function CallScreen() {
   const localVideoRef = useRef(null)
   const screenVideoRef = useRef(null)
   const timerRef = useRef(null)
+  const connectingRef = useRef(false)
 
   const formatDuration = (s) => {
     const m = Math.floor(s / 60).toString().padStart(2, '0')
@@ -46,7 +47,8 @@ export function CallScreen() {
   }, [])
 
   useEffect(() => {
-    let mounted = true
+    if (connectingRef.current) return
+    connectingRef.current = true
 
     const connect = async () => {
       try {
@@ -56,61 +58,48 @@ export function CallScreen() {
         const room = new Room({
           adaptiveStream: false,
           dynacast: false,
-          reconnectPolicy: { maxRetryDelay: 7000, minRetryDelay: 1000, retryAttempts: 10 },
           videoCaptureDefaults: { resolution: { width: 640, height: 480, frameRate: 24 } },
         })
         roomRef.current = room
 
-        room.on(RoomEvent.TrackSubscribed, () => { if (mounted) refreshRemote(room) })
-        room.on(RoomEvent.TrackUnsubscribed, () => { if (mounted) refreshRemote(room) })
-        room.on(RoomEvent.ParticipantDisconnected, () => { if (mounted) refreshRemote(room) })
-        room.on(RoomEvent.Reconnecting, () => console.log('LiveKit reconnecting...'))
-        room.on(RoomEvent.Reconnected, () => { console.log('LiveKit reconnected'); if (mounted) refreshRemote(room) })
+        room.on(RoomEvent.TrackSubscribed, () => refreshRemote(room))
+        room.on(RoomEvent.TrackUnsubscribed, () => refreshRemote(room))
+        room.on(RoomEvent.ParticipantDisconnected, () => refreshRemote(room))
         room.on(RoomEvent.Disconnected, (reason) => {
-          console.log('LiveKit disconnected, reason:', reason)
-          if (mounted) {
-            clearInterval(timerRef.current)
-            setActiveScreen('client')
-          }
+          clearInterval(timerRef.current)
+          setActiveScreen('client')
         })
 
         await room.connect(url, token)
-        if (!mounted) { room.disconnect(); return }
-
         await room.localParticipant.enableCameraAndMicrophone()
-        if (!mounted) { room.disconnect(); return }
 
-        if (mounted) {
-          setStatus('connected')
-          timerRef.current = setInterval(() => setDuration(d => d + 1), 1000)
-          refreshRemote(room)
-        }
+        setStatus('connected')
+        timerRef.current = setInterval(() => setDuration(d => d + 1), 1000)
+        refreshRemote(room)
       } catch (e) {
-        console.error('LiveKit connect error:', e)
-        if (mounted) {
-          setError('Не удалось подключиться. Проверьте камеру и микрофон.')
-          setStatus('error')
-        }
+        setError('Не удалось подключиться. Проверьте камеру и микрофон.')
+        setStatus('error')
       }
     }
 
     connect()
 
     return () => {
-      mounted = false
       clearInterval(timerRef.current)
       const room = roomRef.current
       if (room) {
         room.localParticipant?.getTrackPublications().forEach(pub => pub.track?.stop())
         room.disconnect()
+        roomRef.current = null
       }
+      connectingRef.current = false
     }
   }, [])
 
   useEffect(() => {
     if (status !== 'connected') return
-    const t1 = setTimeout(attachLocalVideo, 100)
-    const t2 = setTimeout(attachLocalVideo, 800)
+    const t1 = setTimeout(attachLocalVideo, 200)
+    const t2 = setTimeout(attachLocalVideo, 1000)
     return () => { clearTimeout(t1); clearTimeout(t2) }
   }, [status, attachLocalVideo])
 
@@ -152,6 +141,7 @@ export function CallScreen() {
     if (room) {
       room.localParticipant?.getTrackPublications().forEach(pub => pub.track?.stop())
       await room.disconnect()
+      roomRef.current = null
     }
     setActiveScreen('client')
   }

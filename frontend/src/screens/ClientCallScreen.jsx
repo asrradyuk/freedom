@@ -12,12 +12,20 @@ export function ClientCallScreen({ token, url, onLeave }) {
   const roomRef = useRef(null)
   const localVideoRef = useRef(null)
   const timerRef = useRef(null)
+  const connectingRef = useRef(false)
 
   const formatDuration = (s) => {
     const m = Math.floor(s / 60).toString().padStart(2, '0')
     const sec = (s % 60).toString().padStart(2, '0')
     return `${m}:${sec}`
   }
+
+  const attachLocalVideo = useCallback(() => {
+    const room = roomRef.current
+    if (!room || !localVideoRef.current) return
+    const pub = room.localParticipant.getTrackPublication(Track.Source.Camera)
+    if (pub?.track) pub.track.attach(localVideoRef.current)
+  }, [])
 
   const refreshRemote = useCallback((room) => {
     let video = null
@@ -31,7 +39,8 @@ export function ClientCallScreen({ token, url, onLeave }) {
   }, [])
 
   useEffect(() => {
-    let mounted = true
+    if (connectingRef.current) return
+    connectingRef.current = true
 
     const connect = async () => {
       try {
@@ -46,58 +55,44 @@ export function ClientCallScreen({ token, url, onLeave }) {
         room.on(RoomEvent.TrackUnsubscribed, () => refreshRemote(room))
         room.on(RoomEvent.ParticipantDisconnected, () => refreshRemote(room))
         room.on(RoomEvent.Disconnected, () => {
-          if (mounted) {
-            clearInterval(timerRef.current)
-            onLeave()
-          }
+          clearInterval(timerRef.current)
+          onLeave()
         })
 
         await room.connect(url, token)
-        if (!mounted) { room.disconnect(); return }
-
         await room.localParticipant.enableCameraAndMicrophone()
-        if (!mounted) { room.disconnect(); return }
 
-        if (mounted) {
-          setStatus('connected')
-          timerRef.current = setInterval(() => setDuration(d => d + 1), 1000)
-          refreshRemote(room)
-        }
+        setStatus('connected')
+        timerRef.current = setInterval(() => setDuration(d => d + 1), 1000)
+        refreshRemote(room)
       } catch {
-        if (mounted) setStatus('error')
+        setStatus('error')
       }
     }
 
     connect()
 
     return () => {
-      mounted = false
       clearInterval(timerRef.current)
       const room = roomRef.current
       if (room) {
         room.localParticipant?.getTrackPublications().forEach(pub => pub.track?.stop())
         room.disconnect()
+        roomRef.current = null
       }
+      connectingRef.current = false
     }
   }, [])
 
   useEffect(() => {
-    if (status !== 'connected' || !localVideoRef.current) return
-    const room = roomRef.current
-    if (!room) return
-    const tryAttach = () => {
-      const pub = room.localParticipant.getTrackPublication(Track.Source.Camera)
-      if (pub?.track && localVideoRef.current) pub.track.attach(localVideoRef.current)
-    }
-    tryAttach()
-    const t = setTimeout(tryAttach, 500)
-    return () => clearTimeout(t)
-  }, [status])
+    if (status !== 'connected') return
+    const t1 = setTimeout(attachLocalVideo, 200)
+    const t2 = setTimeout(attachLocalVideo, 1000)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+  }, [status, attachLocalVideo])
 
   const toggleMic = async () => {
-    const room = roomRef.current
-    if (!room) return
-    await room.localParticipant.setMicrophoneEnabled(!micOn)
+    await roomRef.current?.localParticipant.setMicrophoneEnabled(!micOn)
     setMicOn(v => !v)
   }
 
@@ -107,12 +102,7 @@ export function ClientCallScreen({ token, url, onLeave }) {
     const next = !camOn
     await room.localParticipant.setCameraEnabled(next)
     setCamOn(next)
-    if (next) {
-      setTimeout(() => {
-        const pub = room.localParticipant.getTrackPublication(Track.Source.Camera)
-        if (pub?.track && localVideoRef.current) pub.track.attach(localVideoRef.current)
-      }, 400)
-    }
+    if (next) setTimeout(attachLocalVideo, 400)
   }
 
   const hangUp = async () => {
@@ -121,6 +111,7 @@ export function ClientCallScreen({ token, url, onLeave }) {
     if (room) {
       room.localParticipant?.getTrackPublications().forEach(pub => pub.track?.stop())
       await room.disconnect()
+      roomRef.current = null
     }
     onLeave()
   }
