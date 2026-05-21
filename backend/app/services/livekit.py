@@ -11,6 +11,9 @@ def create_room_name(specialist_tg_id: int) -> str:
 
 
 def generate_token(room: str, participant_identity: str, participant_name: str) -> str:
+    if not participant_identity:
+        participant_identity = f"user-{uuid.uuid4().hex[:8]}"
+
     token = AccessToken(settings.LIVEKIT_API_KEY, settings.LIVEKIT_API_SECRET)
     token.with_identity(participant_identity)
     token.with_name(participant_name)
