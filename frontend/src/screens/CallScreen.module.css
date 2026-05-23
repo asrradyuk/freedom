@@ -19,6 +19,13 @@
   z-index: 9999;
 }
 
+.callControls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
 .hangUpBtn {
   background: #FF453A;
   color: #fff;
@@ -30,10 +37,32 @@
   cursor: pointer;
   box-shadow: 0 4px 20px rgba(255, 69, 58, 0.4);
   font-family: var(--font-body);
+  white-space: nowrap;
 }
 
-.hangUpBtn:active {
-  transform: scale(0.95);
+.hangUpBtn:active { transform: scale(0.95); }
+
+.musicBtn {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  border: 1.5px solid rgba(255,255,255,0.2);
+  border-radius: 20px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: all 0.15s;
+  white-space: nowrap;
+  backdrop-filter: blur(10px);
+}
+
+.musicBtn:disabled { opacity: 0.5; cursor: default; }
+
+.musicBtnActive {
+  background: rgba(52, 199, 89, 0.25);
+  border-color: #34C759;
+  color: #34C759;
 }
 
 .centerState {

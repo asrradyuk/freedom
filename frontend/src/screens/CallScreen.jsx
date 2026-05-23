@@ -5,16 +5,60 @@ import { livekitApi } from '../api'
 import { useAppStore } from '../store'
 import styles from './CallScreen.module.css'
 
-function HangUpButton({ onHangUp }) {
+const AUDIO_NORMAL = {
+  noiseSuppression: true,
+  echoCancellation: true,
+  autoGainControl: true,
+}
+
+const AUDIO_MUSIC = {
+  noiseSuppression: false,
+  echoCancellation: false,
+  autoGainControl: false,
+  sampleRate: 48000,
+}
+
+function CallControls({ onHangUp }) {
   const room = useRoomContext()
-  const handle = async () => {
+  const [musicMode, setMusicMode] = useState(false)
+  const [toggling, setToggling] = useState(false)
+
+  const handleHangUp = async () => {
     await room.disconnect()
     onHangUp()
   }
+
+  const toggleMusicMode = async () => {
+    setToggling(true)
+    try {
+      const next = !musicMode
+      const constraints = next ? AUDIO_MUSIC : AUDIO_NORMAL
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: constraints })
+      const audioTrack = stream.getAudioTracks()[0]
+      await room.localParticipant.setMicrophoneEnabled(false)
+      await room.localParticipant.publishTrack(audioTrack, { source: 'microphone' })
+      setMusicMode(next)
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success')
+    } catch {
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')
+    } finally {
+      setToggling(false)
+    }
+  }
+
   return (
-    <button className={styles.hangUpBtn} onClick={handle}>
-      📵 Завершить
-    </button>
+    <div className={styles.callControls}>
+      <button
+        className={`${styles.musicBtn} ${musicMode ? styles.musicBtnActive : ''}`}
+        onClick={toggleMusicMode}
+        disabled={toggling}
+      >
+        {toggling ? '⏳' : '🎵'} {musicMode ? 'Музыка вкл' : 'Режим музыки'}
+      </button>
+      <button className={styles.hangUpBtn} onClick={handleHangUp}>
+        📵 Завершить
+      </button>
+    </div>
   )
 }
 
@@ -78,7 +122,7 @@ export function CallScreen() {
       >
         <VideoConference />
         <div className={styles.hangUpWrap}>
-          <HangUpButton onHangUp={() => setActiveScreen('client')} />
+          <CallControls onHangUp={() => setActiveScreen('client')} />
         </div>
       </LiveKitRoom>
     </div>
