@@ -7,6 +7,41 @@ import { BottomSheet } from '../components/ui/BottomSheet'
 import { Input, Textarea } from '../components/ui/Input'
 import styles from './ClientScreen.module.css'
 
+const BASE_URL = 'https://freedom-b3m3.onrender.com'
+
+function ClientAvatar({ client, size = 80 }) {
+  const [error, setError] = useState(false)
+  const src = client.client_avatar_url
+    ? client.client_avatar_url.startsWith('http')
+      ? client.client_avatar_url
+      : `${BASE_URL}${client.client_avatar_url}`
+    : null
+  const radius = Math.round(size * 0.3)
+  const initials = client.name.charAt(0).toUpperCase()
+
+  if (src && !error) {
+    return (
+      <img
+        src={src}
+        alt={client.name}
+        onError={() => setError(true)}
+        style={{ width: size, height: size, borderRadius: radius, objectFit: 'cover' }}
+      />
+    )
+  }
+
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: radius,
+      background: 'var(--blue-light)', color: 'var(--blue-dark)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontFamily: 'var(--font-display)', fontSize: size * 0.4, fontWeight: 700,
+    }}>
+      {initials}
+    </div>
+  )
+}
+
 export function ClientScreen() {
   const { currentClient, updateClient, removeClient, setActiveScreen, setCurrentClient, subscriptionActive } = useAppStore()
   const [editOpen, setEditOpen] = useState(false)
@@ -22,7 +57,6 @@ export function ClientScreen() {
   const [saving, setSaving] = useState(false)
 
   if (!currentClient) return null
-
   const client = currentClient
 
   const goBack = () => {
@@ -84,8 +118,18 @@ export function ClientScreen() {
       </div>
 
       <div className={styles.hero}>
-        <div className={styles.avatar}>{client.name.charAt(0).toUpperCase()}</div>
+        <ClientAvatar client={client} size={80} />
         <h1 className={styles.name}>{client.name}</h1>
+        {client.client_username && (
+          <a
+            href={`https://t.me/${client.client_username}`}
+            target="_blank"
+            rel="noreferrer"
+            className={styles.tgLink}
+          >
+            @{client.client_username}
+          </a>
+        )}
         {client.note && <p className={styles.note}>{client.note}</p>}
       </div>
 
@@ -104,12 +148,7 @@ export function ClientScreen() {
               <p className={styles.meetingUrl}>{client.meeting_url}</p>
             )}
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-              <Button
-                variant="primary"
-                size="md"
-                style={{ flex: 1 }}
-                onClick={handleMeetingPress}
-              >
+              <Button variant="primary" size="md" style={{ flex: 1 }} onClick={handleMeetingPress}>
                 {meetingLabel}
               </Button>
               {client.meeting_url && (
@@ -146,12 +185,7 @@ export function ClientScreen() {
           <Card variant="flat" className={styles.infoCard}>
             <p className={styles.sectionLabel}>Полный доступ</p>
             <p className={styles.reminderText}>Материалы, напоминания и видеозвонки доступны по подписке</p>
-            <Button
-              variant="secondary"
-              size="md"
-              style={{ marginTop: 12, width: '100%' }}
-              onClick={() => setActiveScreen('subscription')}
-            >
+            <Button variant="secondary" size="md" style={{ marginTop: 12, width: '100%' }} onClick={() => setActiveScreen('subscription')}>
               Оформить подписку
             </Button>
           </Card>

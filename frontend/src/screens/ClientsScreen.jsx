@@ -7,10 +7,50 @@ import { BottomSheet } from '../components/ui/BottomSheet'
 import { Input, Textarea } from '../components/ui/Input'
 import styles from './ClientsScreen.module.css'
 
+const BASE_URL = 'https://freedom-b3m3.onrender.com'
+
+function ClientAvatar({ client, size = 44 }) {
+  const [error, setError] = useState(false)
+  const src = client.client_avatar_url
+    ? client.client_avatar_url.startsWith('http')
+      ? client.client_avatar_url
+      : `${BASE_URL}${client.client_avatar_url}`
+    : null
+
+  const initials = client.name.charAt(0).toUpperCase()
+  const radius = Math.round(size * 0.3)
+
+  if (src && !error) {
+    return (
+      <img
+        src={src}
+        alt={client.name}
+        onError={() => setError(true)}
+        style={{
+          width: size, height: size, borderRadius: radius,
+          objectFit: 'cover', flexShrink: 0,
+        }}
+      />
+    )
+  }
+
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: radius,
+      background: 'var(--blue-light)', color: 'var(--blue-dark)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontFamily: 'var(--font-display)', fontSize: size * 0.4,
+      fontWeight: 700, flexShrink: 0,
+    }}>
+      {initials}
+    </div>
+  )
+}
+
 function ClientCard({ client, onClick }) {
   return (
     <Card className={styles.clientCard} onClick={onClick}>
-      <div className={styles.avatar}>{client.name.charAt(0).toUpperCase()}</div>
+      <ClientAvatar client={client} size={44} />
       <div className={styles.info}>
         <p className={styles.name}>{client.name}</p>
         {client.note && <p className={styles.note}>{client.note}</p>}
