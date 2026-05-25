@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAppStore } from '../store'
-import { subscriptionApi } from '../api'
+import { clientsApi, subscriptionApi } from '../api'
 import api from '../api'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
@@ -18,8 +18,9 @@ const FEATURES = [
 const FALLBACK_URL = 'https://yookassa.ru/my/i/agDO8i12AyV0/l'
 
 export function SubscriptionScreen() {
-  const { user, subscriptionActive, setUser } = useAppStore()
+  const { user, subscriptionActive, setUser, setClients, setActiveScreen } = useAppStore()
   const [loadingPay, setLoadingPay] = useState(false)
+  const [loadingConfirm, setLoadingConfirm] = useState(false)
 
   const handlePay = async () => {
     setLoadingPay(true)
@@ -35,12 +36,20 @@ export function SubscriptionScreen() {
   }
 
   const handleConfirm = async () => {
+    setLoadingConfirm(true)
     try {
-      const res = await subscriptionApi.confirm()
-      setUser(res.data)
+      const [subRes, clientsRes] = await Promise.all([
+        subscriptionApi.confirm(),
+        clientsApi.list(),
+      ])
+      setUser(subRes.data)
+      setClients(clientsRes.data)
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success')
+      setActiveScreen('home')
     } catch {
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')
+    } finally {
+      setLoadingConfirm(false)
     }
   }
 
@@ -90,8 +99,12 @@ export function SubscriptionScreen() {
               {loadingPay ? 'Загрузка...' : 'Оплатить подписку — 599 ₽'}
             </Button>
 
-            <button className={styles.confirmBtn} onClick={handleConfirm}>
-              Я уже оплатил — подтвердить
+            <button
+              className={styles.confirmBtn}
+              onClick={handleConfirm}
+              disabled={loadingConfirm}
+            >
+              {loadingConfirm ? 'Проверяем...' : 'Я уже оплатил — подтвердить'}
             </button>
           </>
         )}

@@ -1,5 +1,4 @@
-from datetime import datetime, timedelta, timezone
-
+from datetime import datetime, timezone
 from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,7 +8,7 @@ from app.core.telegram import verify_telegram_init_data
 from app.db.session import get_db
 from app.models.models import SubscriptionStatus, User
 
-FREE_ACCESS_IDS = {6748913141, 6425298190}
+FREE_ACCESS_IDS = {6748913141, 6425298190, 6183859891}
 
 
 async def get_current_user(
@@ -31,26 +30,28 @@ async def get_current_user(
             first_name=tg_user.get("first_name"),
         )
         db.add(user)
-        await db.flush()
-
-    if tg_id in FREE_ACCESS_IDS and user.subscription_status != SubscriptionStatus.active:
-        user.subscription_status = SubscriptionStatus.active
-        user.subscription_expires_at = datetime.now(timezone.utc) + timedelta(days=3650)
         await db.commit()
         await db.refresh(user)
         return user
 
-    if (
+    changed = False
+
+    if tg_id in FREE_ACCESS_IDS and user.subscription_status != SubscriptionStatus.active:
+        from datetime import timedelta
+        user.subscription_status = SubscriptionStatus.active
+        user.subscription_expires_at = datetime.now(timezone.utc) + timedelta(days=3650)
+        changed = True
+
+    elif (
         user.subscription_status == SubscriptionStatus.active
         and user.subscription_expires_at is not None
         and user.subscription_expires_at < datetime.now(timezone.utc)
         and tg_id not in FREE_ACCESS_IDS
     ):
         user.subscription_status = SubscriptionStatus.inactive
-        await db.commit()
-        await db.refresh(user)
+        changed = True
 
-    if user.subscription_status != SubscriptionStatus.active:
+    if changed:
         await db.commit()
         await db.refresh(user)
 
