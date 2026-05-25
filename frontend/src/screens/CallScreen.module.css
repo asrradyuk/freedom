@@ -1,68 +1,102 @@
 .screen {
   height: 100dvh;
-  background: #1C1C1E;
+  background: #0a0a0a;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
 .lkRoom {
   height: 100dvh;
   position: relative;
+  background: #0a0a0a;
 }
 
-.hangUpWrap {
+.lkRoom :global(.lk-video-conference) {
+  height: 100dvh;
+}
+
+.overlay {
   position: fixed;
-  bottom: calc(80px + env(safe-area-inset-bottom, 0px));
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 9999;
-}
-
-.callControls {
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 0 20px calc(28px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: 10px;
+  z-index: 9999;
+  background: linear-gradient(transparent, rgba(0,0,0,0.85) 40%);
+  padding-top: 40px;
+}
+
+.soundToggleRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 20px;
+  padding: 8px 18px;
+}
+
+.soundLabel {
+  font-size: 13px;
+  color: rgba(255,255,255,0.6);
+  font-family: var(--font-body, system-ui);
+}
+
+.toggle {
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  background: rgba(255,255,255,0.15);
+  border: none;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+}
+
+.toggle:disabled {
+  opacity: 0.5;
+}
+
+.toggleOn {
+  background: #34c759;
+}
+
+.toggleThumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s ease;
+  display: block;
+}
+
+.toggleOn .toggleThumb {
+  transform: translateX(18px);
 }
 
 .hangUpBtn {
-  background: #FF453A;
+  background: #ff3b30;
   color: #fff;
   border: none;
   border-radius: 24px;
-  padding: 14px 32px;
+  padding: 15px 32px;
   font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 4px 20px rgba(255, 69, 58, 0.4);
-  font-family: var(--font-body);
-  white-space: nowrap;
-}
-
-.hangUpBtn:active { transform: scale(0.95); }
-
-.musicBtn {
-  background: rgba(255,255,255,0.12);
-  color: #fff;
-  border: 1.5px solid rgba(255,255,255,0.2);
-  border-radius: 20px;
-  padding: 10px 20px;
-  font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  font-family: var(--font-body);
-  transition: all 0.15s;
-  white-space: nowrap;
-  backdrop-filter: blur(10px);
+  width: 100%;
+  font-family: var(--font-body, system-ui);
+  transition: transform 0.1s;
 }
 
-.musicBtn:disabled { opacity: 0.5; cursor: default; }
-
-.musicBtnActive {
-  background: rgba(52, 199, 89, 0.25);
-  border-color: #34C759;
-  color: #34C759;
+.hangUpBtn:active {
+  transform: scale(0.97);
 }
 
 .centerState {
@@ -75,52 +109,65 @@
   padding: 32px;
 }
 
-.controls {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px 20px calc(28px + env(safe-area-inset-bottom, 0px));
-  background: rgba(28, 28, 30, 0.97);
+.bottomArea {
+  padding: 16px 20px calc(28px + env(safe-area-inset-bottom, 0px));
+  background: rgba(0,0,0,0.9);
 }
 
-.avatar {
+.avatarCircle {
   width: 80px;
   height: 80px;
-  border-radius: 26px;
-  background: var(--blue-mid);
-  color: #fff;
-  font-family: var(--font-display);
+  border-radius: 24px;
+  background: #1c1c28;
+  color: rgba(255,255,255,0.7);
   font-size: 32px;
-  font-weight: 700;
+  font-weight: 400;
   display: flex;
   align-items: center;
   justify-content: center;
+  border: 1.5px solid rgba(255,255,255,0.08);
 }
 
 .clientName {
-  font-size: 22px;
-  font-weight: 700;
-  color: #fff;
-  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 400;
+  color: rgba(255,255,255,0.9);
+  margin: 0;
+  font-family: var(--font-body, system-ui);
 }
 
-.statusText { font-size: 15px; color: rgba(255,255,255,0.55); }
-.errorText { font-size: 15px; color: #FF453A; text-align: center; padding: 0 32px; }
+.statusText {
+  font-size: 14px;
+  color: rgba(255,255,255,0.35);
+  margin: 0;
+}
 
-.dots { display: flex; gap: 6px; margin-top: 8px; }
+.errorText {
+  font-size: 14px;
+  color: #ff3b30;
+  text-align: center;
+  padding: 0 32px;
+  margin: 0;
+}
+
+.dots {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
 .dots span {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: var(--blue-mid);
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.3);
   animation: pulse 1.2s infinite ease-in-out;
 }
+
 .dots span:nth-child(2) { animation-delay: 0.2s; }
 .dots span:nth-child(3) { animation-delay: 0.4s; }
 
 @keyframes pulse {
-  0%, 80%, 100% { opacity: 0.3; transform: scale(0.9); }
+  0%, 80%, 100% { opacity: 0.2; transform: scale(0.85); }
   40% { opacity: 1; transform: scale(1); }
-}
-
-.lkRoom :global(.lk-video-conference) {
-  height: 100dvh;
 }

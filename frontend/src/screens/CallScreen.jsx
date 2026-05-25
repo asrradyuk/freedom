@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { LiveKitRoom, VideoConference, useRoomContext } from '@livekit/components-react'
+import { LiveKitRoom, VideoConference, useRoomContext, useLocalParticipant } from '@livekit/components-react'
 import '@livekit/components-styles'
 import { livekitApi } from '../api'
 import { useAppStore } from '../store'
@@ -11,16 +11,16 @@ const AUDIO_NORMAL = {
   autoGainControl: true,
 }
 
-const AUDIO_MUSIC = {
+const AUDIO_ORIGINAL = {
   noiseSuppression: false,
   echoCancellation: false,
   autoGainControl: false,
   sampleRate: 48000,
 }
 
-function CallControls({ onHangUp }) {
+function CallControls({ clientName, onHangUp }) {
   const room = useRoomContext()
-  const [musicMode, setMusicMode] = useState(false)
+  const [originalSound, setOriginalSound] = useState(false)
   const [toggling, setToggling] = useState(false)
 
   const handleHangUp = async () => {
@@ -28,16 +28,16 @@ function CallControls({ onHangUp }) {
     onHangUp()
   }
 
-  const toggleMusicMode = async () => {
+  const toggleOriginalSound = async () => {
     setToggling(true)
     try {
-      const next = !musicMode
-      const constraints = next ? AUDIO_MUSIC : AUDIO_NORMAL
+      const next = !originalSound
+      const constraints = next ? AUDIO_ORIGINAL : AUDIO_NORMAL
       const stream = await navigator.mediaDevices.getUserMedia({ audio: constraints })
       const audioTrack = stream.getAudioTracks()[0]
       await room.localParticipant.setMicrophoneEnabled(false)
       await room.localParticipant.publishTrack(audioTrack, { source: 'microphone' })
-      setMusicMode(next)
+      setOriginalSound(next)
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success')
     } catch {
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')
@@ -47,17 +47,85 @@ function CallControls({ onHangUp }) {
   }
 
   return (
-    <div className={styles.callControls}>
-      <button
-        className={`${styles.musicBtn} ${musicMode ? styles.musicBtnActive : ''}`}
-        onClick={toggleMusicMode}
-        disabled={toggling}
-      >
-        {toggling ? '⏳' : '🎵'} {musicMode ? 'Музыка вкл' : 'Режим музыки'}
-      </button>
-      <button className={styles.hangUpBtn} onClick={handleHangUp}>
-        📵 Завершить
-      </button>
+    <div className={styles.controls}>
+      <div className={styles.soundToggleRow}>
+        <span className={styles.soundLabel}>Оригинальный звук</span>
+        <button
+          className={`${styles.toggle} ${originalSound ? styles.toggleOn : ''}`}
+          onClick={toggleOriginalSound}
+          disabled={toggling}
+          aria-label="Оригинальный звук"
+        >
+          <span className={styles.toggleThumb} />
+        </button>
+      </div>
+      <div className={styles.btnRow}>
+        <div className={styles.controlItem}>
+          <div className={styles.controlBtn}>📵</div>
+          <span className={styles.controlLabel}>Завершить</span>
+        </div>
+        <div className={styles.controlItem}>
+          <button className={styles.hangUpRound} onClick={handleHangUp} aria-label="Завершить звонок">
+            📵
+          </button>
+          <span className={styles.controlLabel}>Завершить</span>
+        </div>
+        <div className={styles.controlItem}>
+          <div className={styles.controlBtn}>📹</div>
+          <span className={styles.controlLabel}>Камера</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function InnerCall({ clientName, onHangUp }) {
+  const room = useRoomContext()
+  const [originalSound, setOriginalSound] = useState(false)
+  const [toggling, setToggling] = useState(false)
+
+  const handleHangUp = async () => {
+    await room.disconnect()
+    onHangUp()
+  }
+
+  const toggleOriginalSound = async () => {
+    setToggling(true)
+    try {
+      const next = !originalSound
+      const constraints = next ? AUDIO_ORIGINAL : AUDIO_NORMAL
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: constraints })
+      const audioTrack = stream.getAudioTracks()[0]
+      await room.localParticipant.setMicrophoneEnabled(false)
+      await room.localParticipant.publishTrack(audioTrack, { source: 'microphone' })
+      setOriginalSound(next)
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success')
+    } catch {
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')
+    } finally {
+      setToggling(false)
+    }
+  }
+
+  return (
+    <div className={styles.lkRoom}>
+      <VideoConference />
+      <div className={styles.overlay}>
+        <div className={styles.soundToggleRow}>
+          <span className={styles.soundLabel}>Оригинальный звук</span>
+          <button
+            className={`${styles.toggle} ${originalSound ? styles.toggleOn : ''}`}
+            onClick={toggleOriginalSound}
+            disabled={toggling}
+            aria-label="Оригинальный звук"
+          >
+            <span className={styles.toggleThumb} />
+          </button>
+        </div>
+        <button className={styles.hangUpBtn} onClick={handleHangUp}>
+          📵 Завершить
+        </button>
+      </div>
     </div>
   )
 }
@@ -83,12 +151,12 @@ export function CallScreen() {
     return (
       <div className={styles.screen}>
         <div className={styles.centerState}>
-          <div className={styles.avatar}>{currentClient.name.charAt(0).toUpperCase()}</div>
+          <div className={styles.avatarCircle}>{currentClient.name.charAt(0).toUpperCase()}</div>
           <p className={styles.clientName}>{currentClient.name}</p>
           <p className={styles.statusText}>Подключение...</p>
           <div className={styles.dots}><span /><span /><span /></div>
         </div>
-        <div className={styles.controls}>
+        <div className={styles.bottomArea}>
           <button className={styles.hangUpBtn} onClick={() => setActiveScreen('client')}>✕ Отмена</button>
         </div>
       </div>
@@ -99,10 +167,10 @@ export function CallScreen() {
     return (
       <div className={styles.screen}>
         <div className={styles.centerState}>
-          <div className={styles.avatar}>{currentClient.name.charAt(0).toUpperCase()}</div>
+          <div className={styles.avatarCircle}>{currentClient.name.charAt(0).toUpperCase()}</div>
           <p className={styles.errorText}>{error || 'Ошибка подключения'}</p>
         </div>
-        <div className={styles.controls}>
+        <div className={styles.bottomArea}>
           <button className={styles.hangUpBtn} onClick={() => setActiveScreen('client')}>✕ Назад</button>
         </div>
       </div>
@@ -120,10 +188,7 @@ export function CallScreen() {
         onDisconnected={() => setActiveScreen('client')}
         style={{ height: '100dvh' }}
       >
-        <VideoConference />
-        <div className={styles.hangUpWrap}>
-          <CallControls onHangUp={() => setActiveScreen('client')} />
-        </div>
+        <InnerCall clientName={currentClient.name} onHangUp={() => setActiveScreen('client')} />
       </LiveKitRoom>
     </div>
   )
