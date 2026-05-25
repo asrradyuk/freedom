@@ -8,7 +8,7 @@ from app.core.telegram import verify_telegram_init_data
 from app.db.session import get_db
 from app.models.models import SubscriptionStatus, User
 
-FREE_ACCESS_IDS = {6748913141, 6425298190, 6183859891}
+FREE_ACCESS_IDS = {6748913141, 6425298190}
 
 
 async def get_current_user(
@@ -41,7 +41,6 @@ async def get_current_user(
         user.subscription_status = SubscriptionStatus.active
         user.subscription_expires_at = datetime.now(timezone.utc) + timedelta(days=3650)
         changed = True
-
     elif (
         user.subscription_status == SubscriptionStatus.active
         and user.subscription_expires_at is not None
