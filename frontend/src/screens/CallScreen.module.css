@@ -13,7 +13,7 @@
   overflow: hidden;
 }
 
-/* ── Видео зона ── */
+/* ── Видео зона — строго ограничена ── */
 .videoArea {
   flex: 1;
   position: relative;
@@ -22,34 +22,21 @@
   min-height: 0;
 }
 
-/* Удалённые участники */
-.remoteArea {
-  width: 100%;
-  height: 100%;
+/* Основное видео */
+.mainVideo {
+  position: absolute;
+  inset: 0;
 }
 
-.remoteVideoFull {
+.mainVideoEl {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
+  background: #000;
 }
 
-.remoteGrid {
-  width: 100%;
-  height: 100%;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2px;
-}
-
-.remoteVideoGrid {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
+/* Ожидание */
 .waitingState {
   width: 100%;
   height: 100%;
@@ -57,68 +44,11 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 14px;
   background: #1a1a2e;
 }
 
-.remoteEmpty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-}
-
-.waitingText {
-  color: rgba(255,255,255,0.4);
-  font-size: 15px;
-  margin: 0;
-}
-
-.remoteName {
-  color: rgba(255,255,255,0.6);
-  font-size: 14px;
-  margin: 0;
-}
-
-/* Локальное видео — угол */
-.localVideoWrap {
-  position: absolute;
-  bottom: 12px;
-  right: 12px;
-  width: 90px;
-  height: 120px;
-  border-radius: 12px;
-  overflow: hidden;
-  border: 2px solid rgba(255,255,255,0.2);
-  background: #1a1a2e;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 10;
-}
-
-.localVideo {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.localLabel {
-  position: absolute;
-  bottom: 4px;
-  left: 0;
-  right: 0;
-  text-align: center;
-  font-size: 10px;
-  color: rgba(255,255,255,0.7);
-  margin: 0;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
-}
-
-/* Аватары */
-.avatarLarge {
+.waitingAvatar {
   width: 80px;
   height: 80px;
   border-radius: 24px;
@@ -130,24 +60,84 @@
   color: rgba(255,255,255,0.6);
 }
 
-.avatarSmall {
-  width: 56px;
-  height: 56px;
+.waitingText {
+  color: rgba(255,255,255,0.4);
+  font-size: 15px;
+  margin: 0;
+}
+
+/* PiP — второй участник */
+.pip {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 100px;
+  height: 130px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid rgba(255,255,255,0.25);
+  background: #1a1a2e;
+  z-index: 10;
+}
+
+.pipVideo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Локальное видео — правый нижний угол */
+.localWrap {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  width: 88px;
+  height: 118px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid rgba(255,255,255,0.2);
+  background: #1a1a2e;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.localVideo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.localAvatar {
+  width: 48px;
+  height: 48px;
   border-radius: 14px;
   background: #2a2a4a;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
-  color: rgba(255,255,255,0.6);
+  font-size: 20px;
+  color: rgba(255,255,255,0.5);
+}
+
+.localLabel {
+  position: absolute;
+  bottom: 4px;
+  left: 0; right: 0;
+  text-align: center;
+  font-size: 10px;
+  color: rgba(255,255,255,0.7);
+  margin: 0;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.9);
 }
 
 /* ── Чат ── */
 .chatPanel {
   position: fixed;
-  right: 0;
-  top: 0;
-  bottom: 0;
+  right: 0; top: 0; bottom: 0;
   width: min(300px, 80vw);
   background: #1a1a1a;
   display: flex;
@@ -168,102 +158,75 @@
 }
 
 .chatClose {
-  background: none;
-  border: none;
+  background: none; border: none;
   color: rgba(255,255,255,0.4);
-  font-size: 16px;
-  cursor: pointer;
-  padding: 4px;
+  font-size: 16px; cursor: pointer; padding: 4px;
 }
 
 .chatMessages {
-  flex: 1;
-  overflow-y: auto;
+  flex: 1; overflow-y: auto;
   padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: flex; flex-direction: column; gap: 10px;
 }
 
 .chatEmpty {
   text-align: center;
   color: rgba(255,255,255,0.25);
-  font-size: 13px;
-  margin-top: 40px;
+  font-size: 13px; margin-top: 40px;
 }
 
 .chatMsg { display: flex; flex-direction: column; gap: 2px; }
 .chatSender { font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.4); }
 .chatText {
-  font-size: 14px;
-  color: rgba(255,255,255,0.85);
+  font-size: 14px; color: rgba(255,255,255,0.85);
   background: rgba(255,255,255,0.06);
-  border-radius: 10px;
-  padding: 8px 10px;
-  word-break: break-word;
+  border-radius: 10px; padding: 8px 10px; word-break: break-word;
 }
 
 .chatInputRow {
-  display: flex;
-  gap: 8px;
+  display: flex; gap: 8px;
   padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid rgba(255,255,255,0.08);
 }
 
 .chatField {
   flex: 1;
-  background: rgba(255,255,255,0.08);
-  border: none;
-  border-radius: 12px;
-  padding: 10px 12px;
-  color: #fff;
-  font-size: 14px;
-  outline: none;
+  background: rgba(255,255,255,0.08); border: none;
+  border-radius: 12px; padding: 10px 12px;
+  color: #fff; font-size: 14px; outline: none;
   font-family: var(--font-body, system-ui);
 }
 .chatField::placeholder { color: rgba(255,255,255,0.3); }
 
 .chatSend {
-  background: #4a9eff;
-  border: none;
-  border-radius: 12px;
-  width: 38px;
-  color: #fff;
-  font-size: 16px;
-  cursor: pointer;
+  background: #4a9eff; border: none;
+  border-radius: 12px; width: 38px;
+  color: #fff; font-size: 16px; cursor: pointer;
 }
 
 /* ── Контролы ── */
 .controls {
   background: rgba(10,10,10,0.97);
   padding: 10px 16px calc(16px + env(safe-area-inset-bottom, 0px));
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: flex; flex-direction: column; gap: 10px;
   border-top: 1px solid rgba(255,255,255,0.06);
   flex-shrink: 0;
 }
 
 .soundRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 2px;
+  display: flex; align-items: center;
+  justify-content: space-between; padding: 0 2px;
 }
 
 .soundLabel { font-size: 13px; color: rgba(255,255,255,0.45); }
 
 .toggle {
-  width: 40px;
-  height: 24px;
+  width: 40px; height: 24px;
   border-radius: 12px;
   background: rgba(255,255,255,0.18);
-  border: none;
-  cursor: pointer;
-  position: relative;
-  transition: background 0.2s;
-  padding: 0;
-  flex-shrink: 0;
+  border: none; cursor: pointer;
+  position: relative; transition: background 0.2s;
+  padding: 0; flex-shrink: 0;
 }
 .toggle:disabled { opacity: 0.5; }
 .toggleOn { background: #34c759; }
@@ -271,10 +234,8 @@
   position: absolute;
   left: 3px; top: 3px;
   width: 18px; height: 18px;
-  border-radius: 50%;
-  background: #fff;
-  transition: transform 0.2s;
-  display: block;
+  border-radius: 50%; background: #fff;
+  transition: transform 0.2s; display: block;
 }
 .toggleOn .toggleThumb { transform: translateX(16px); }
 
@@ -282,73 +243,47 @@
   display: flex;
   justify-content: space-around;
   align-items: flex-end;
-  gap: 4px;
+  gap: 6px;
 }
 
 .ctrlBtn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
+  display: flex; flex-direction: column;
+  align-items: center; gap: 4px;
   background: rgba(255,255,255,0.08);
-  border: none;
-  border-radius: 14px;
+  border: none; border-radius: 14px;
   padding: 10px 8px 8px;
-  cursor: pointer;
-  min-width: 54px;
+  cursor: pointer; flex: 1; max-width: 72px;
   transition: background 0.15s;
-  flex: 1;
-  max-width: 70px;
 }
 .ctrlBtn:active { opacity: 0.7; }
 .ctrlActive { background: rgba(255,255,255,0.18) !important; }
 .ctrlDanger { background: #ff3b30 !important; }
-
 .ctrlIcon { font-size: 20px; line-height: 1; }
 .ctrlLabel { font-size: 10px; color: rgba(255,255,255,0.5); white-space: nowrap; }
 .ctrlDanger .ctrlLabel { color: rgba(255,255,255,0.85); }
 
 /* ── Загрузка/ошибка ── */
 .centerState {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 12px;
 }
-
 .bottomArea {
   padding: 16px 20px calc(28px + env(safe-area-inset-bottom, 0px));
-  display: flex;
-  justify-content: center;
+  display: flex; justify-content: center;
 }
-
 .avatarCircle {
-  width: 72px; height: 72px;
-  border-radius: 22px;
-  background: #1c1c28;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 28px;
-  color: rgba(255,255,255,0.6);
+  width: 72px; height: 72px; border-radius: 22px;
+  background: #1c1c28; display: flex; align-items: center;
+  justify-content: center; font-size: 28px; color: rgba(255,255,255,0.6);
 }
-
 .clientName { font-size: 18px; color: rgba(255,255,255,0.85); margin: 0; }
 .statusText { font-size: 14px; color: rgba(255,255,255,0.35); margin: 0; }
 .errorText { font-size: 14px; color: #ff453a; text-align: center; padding: 0 32px; margin: 0; }
-
 .hangUpBtn {
-  background: rgba(255,59,48,0.85);
-  color: #fff;
-  border: none;
-  border-radius: 14px;
-  padding: 13px 40px;
-  font-size: 15px;
-  cursor: pointer;
+  background: rgba(255,59,48,0.85); color: #fff;
+  border: none; border-radius: 14px;
+  padding: 13px 40px; font-size: 15px; cursor: pointer;
 }
-
 .dots { display: flex; gap: 6px; margin-top: 4px; }
 .dots span {
   width: 7px; height: 7px; border-radius: 50%;
@@ -357,7 +292,6 @@
 }
 .dots span:nth-child(2) { animation-delay: 0.2s; }
 .dots span:nth-child(3) { animation-delay: 0.4s; }
-
 @keyframes pulse {
   0%, 80%, 100% { opacity: 0.2; transform: scale(0.85); }
   40% { opacity: 0.8; transform: scale(1); }

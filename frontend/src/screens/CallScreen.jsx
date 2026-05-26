@@ -35,84 +35,81 @@ function TrackAudio({ track }) {
   return <audio ref={ref} autoPlay />
 }
 
-function Avatar({ name, large }) {
-  return (
-    <div className={large ? styles.avatarLarge : styles.avatarSmall}>
-      <span>{(name || '?').charAt(0).toUpperCase()}</span>
-    </div>
-  )
-}
-
-function VideoArea() {
-  const participants = useParticipants()
+function VideoArea({ isClient }) {
   const { localParticipant } = useLocalParticipant()
 
-  const remoteTracks = useTracks(
-    [{ source: Track.Source.Camera, withPlaceholder: false },
-     { source: Track.Source.ScreenShare, withPlaceholder: false }],
+  const remoteCamTracks = useTracks(
+    [{ source: Track.Source.Camera, withPlaceholder: false }],
     { onlySubscribed: true }
   ).filter(t => !t.participant?.isLocal)
+
+  const remoteScreenTracks = useTracks(
+    [{ source: Track.Source.ScreenShare, withPlaceholder: false }],
+    { onlySubscribed: true }
+  ).filter(t => !t.participant?.isLocal)
+
+  const localScreenTracks = useTracks(
+    [{ source: Track.Source.ScreenShare, withPlaceholder: false }],
+    { onlySubscribed: false }
+  ).filter(t => t.participant?.isLocal)
 
   const audioTracks = useTracks(
     [{ source: Track.Source.Microphone }],
     { onlySubscribed: true }
   ).filter(t => !t.participant?.isLocal)
 
-  const localCamPub = localParticipant?.getTrackPublication(Track.Source.Camera)
-  const localCamTrack = localCamPub?.track
+  const localCamTrack = localParticipant?.getTrackPublication(Track.Source.Camera)?.track
   const localName = localParticipant?.name || 'Вы'
 
-  const remoteParticipants = participants.filter(p => !p.isLocal)
-  const hasRemoteVideo = remoteTracks.length > 0
+  // Главное видео: чужой экран > своя демонстрация > чужая камера
+  const mainTrack = remoteScreenTracks[0]?.publication?.track
+    || localScreenTracks[0]?.publication?.track
+    || remoteCamTracks[0]?.publication?.track
+
+  const mainMuted = !remoteScreenTracks[0] && !!localScreenTracks[0]
+
+  // Второй тайл (пип) — чужая камера если идёт демонстрация
+  const pipTrack = (remoteScreenTracks[0] || localScreenTracks[0])
+    ? remoteCamTracks[0]?.publication?.track
+    : null
+
+  const participants = useParticipants()
+  const remoteParticipant = participants.find(p => !p.isLocal)
 
   return (
     <div className={styles.videoArea}>
-      {/* Аудио (невидимое) */}
-      {audioTracks.map((t, i) => (
+      {audioTracks.map((t, i) =>
         t.publication?.track && <TrackAudio key={i} track={t.publication.track} />
-      ))}
+      )}
 
-      {/* Основная зона — удалённые участники */}
-      <div className={styles.remoteArea}>
-        {remoteTracks.length === 0 ? (
-          <div className={styles.waitingState}>
-            {remoteParticipants.length === 0 ? (
-              <>
-                <Avatar name="?" large />
-                <p className={styles.waitingText}>Ожидание участника...</p>
-              </>
-            ) : (
-              remoteParticipants.map(p => (
-                <div key={p.identity} className={styles.remoteEmpty}>
-                  <Avatar name={p.name} large />
-                  <p className={styles.remoteName}>{p.name}</p>
-                </div>
-              ))
-            )}
-          </div>
-        ) : remoteTracks.length === 1 ? (
-          <TrackVideo
-            track={remoteTracks[0].publication?.track}
-            className={styles.remoteVideoFull}
-          />
+      {/* Основное видео */}
+      <div className={styles.mainVideo}>
+        {mainTrack ? (
+          <TrackVideo track={mainTrack} muted={mainMuted} className={styles.mainVideoEl} />
         ) : (
-          <div className={styles.remoteGrid}>
-            {remoteTracks.map((t, i) => (
-              <TrackVideo
-                key={i}
-                track={t.publication?.track}
-                className={styles.remoteVideoGrid}
-              />
-            ))}
+          <div className={styles.waitingState}>
+            <div className={styles.waitingAvatar}>
+              {(remoteParticipant?.name || '?').charAt(0).toUpperCase()}
+            </div>
+            <p className={styles.waitingText}>
+              {remoteParticipant ? remoteParticipant.name : 'Ожидание участника...'}
+            </p>
           </div>
         )}
       </div>
 
-      {/* Локальное видео — маленькое в углу */}
-      <div className={styles.localVideoWrap}>
+      {/* PiP — второй участник поверх */}
+      {pipTrack && (
+        <div className={styles.pip}>
+          <TrackVideo track={pipTrack} className={styles.pipVideo} />
+        </div>
+      )}
+
+      {/* Локальное видео в углу */}
+      <div className={styles.localWrap}>
         {localCamTrack
           ? <TrackVideo track={localCamTrack} muted className={styles.localVideo} />
-          : <Avatar name={localName} />
+          : <div className={styles.localAvatar}>{localName.charAt(0).toUpperCase()}</div>
         }
         <p className={styles.localLabel}>Вы</p>
       </div>
@@ -124,17 +121,8 @@ function ChatPanel({ onClose }) {
   const { chatMessages, send } = useChat()
   const [text, setText] = useState('')
   const bottomRef = useRef(null)
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [chatMessages])
-
-  const handleSend = () => {
-    if (!text.trim()) return
-    send(text.trim())
-    setText('')
-  }
-
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [chatMessages])
+  const handleSend = () => { if (!text.trim()) return; send(text.trim()); setText('') }
   return (
     <div className={styles.chatPanel}>
       <div className={styles.chatHeader}>
@@ -152,13 +140,9 @@ function ChatPanel({ onClose }) {
         <div ref={bottomRef} />
       </div>
       <div className={styles.chatInputRow}>
-        <input
-          value={text}
-          onChange={e => setText(e.target.value)}
+        <input value={text} onChange={e => setText(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleSend()}
-          placeholder="Написать..."
-          className={styles.chatField}
-        />
+          placeholder="Написать..." className={styles.chatField} />
         <button className={styles.chatSend} onClick={handleSend}>➤</button>
       </div>
     </div>
@@ -167,10 +151,7 @@ function ChatPanel({ onClose }) {
 
 function CtrlBtn({ icon, label, active, danger, onClick }) {
   return (
-    <button
-      className={`${styles.ctrlBtn} ${active ? styles.ctrlActive : ''} ${danger ? styles.ctrlDanger : ''}`}
-      onClick={onClick}
-    >
+    <button className={`${styles.ctrlBtn} ${active ? styles.ctrlActive : ''} ${danger ? styles.ctrlDanger : ''}`} onClick={onClick}>
       <span className={styles.ctrlIcon}>{icon}</span>
       <span className={styles.ctrlLabel}>{label}</span>
     </button>
@@ -186,25 +167,12 @@ function Controls({ onHangUp, showChat, setShowChat, isClient }) {
   const [originalSound, setOriginalSound] = useState(false)
   const [toggling, setToggling] = useState(false)
 
-  const toggleMic = async () => {
-    const next = !mic
-    await localParticipant.setMicrophoneEnabled(next)
-    setMic(next)
-  }
-
-  const toggleCam = async () => {
-    const next = !cam
-    await localParticipant.setCameraEnabled(next)
-    setCam(next)
-  }
-
+  const toggleMic = async () => { const n = !mic; await localParticipant.setMicrophoneEnabled(n); setMic(n) }
+  const toggleCam = async () => { const n = !cam; await localParticipant.setCameraEnabled(n); setCam(n) }
   const toggleScreen = async () => {
-    try {
-      await localParticipant.setScreenShareEnabled(!screen)
-      setScreen(v => !v)
-    } catch { setScreen(false) }
+    try { await localParticipant.setScreenShareEnabled(!screen); setScreen(v => !v) }
+    catch { setScreen(false) }
   }
-
   const toggleOriginal = async () => {
     setToggling(true)
     try {
@@ -214,25 +182,16 @@ function Controls({ onHangUp, showChat, setShowChat, isClient }) {
       await localParticipant.setMicrophoneEnabled(false)
       await localParticipant.publishTrack(track, { source: 'microphone' })
       await localParticipant.setMicrophoneEnabled(true)
-      setOriginalSound(next)
-      setMic(true)
+      setOriginalSound(next); setMic(true)
     } catch {} finally { setToggling(false) }
   }
-
-  const hangUp = async () => {
-    await room.disconnect()
-    onHangUp()
-  }
+  const hangUp = async () => { await room.disconnect(); onHangUp() }
 
   return (
     <div className={styles.controls}>
       <div className={styles.soundRow}>
         <span className={styles.soundLabel}>Оригинальный звук</span>
-        <button
-          className={`${styles.toggle} ${originalSound ? styles.toggleOn : ''}`}
-          onClick={toggleOriginal}
-          disabled={toggling}
-        >
+        <button className={`${styles.toggle} ${originalSound ? styles.toggleOn : ''}`} onClick={toggleOriginal} disabled={toggling}>
           <span className={styles.toggleThumb} />
         </button>
       </div>
@@ -251,7 +210,7 @@ function InnerCall({ onHangUp, isClient }) {
   const [showChat, setShowChat] = useState(false)
   return (
     <div className={styles.callWrap}>
-      <VideoArea />
+      <VideoArea isClient={isClient} />
       {showChat && <ChatPanel onClose={() => setShowChat(false)} />}
       <Controls onHangUp={onHangUp} showChat={showChat} setShowChat={setShowChat} isClient={isClient} />
     </div>
