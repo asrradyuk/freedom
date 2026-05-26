@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ClientCallScreen } from './ClientCallScreen'
+import { ClientCallScreen } from './CallScreen'
 import { useAppStore } from '../store'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
