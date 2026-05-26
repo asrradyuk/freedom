@@ -10,69 +10,145 @@
   display: flex;
   flex-direction: column;
   background: #111;
-}
-
-.videoWrap {
-  flex: 1;
   overflow: hidden;
-  position: relative;
 }
 
-.videoGrid {
+/* ── Видео зона ── */
+.videoArea {
+  flex: 1;
+  position: relative;
+  background: #000;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Удалённые участники */
+.remoteArea {
   width: 100%;
   height: 100%;
-  display: grid;
-  gap: 2px;
-  background: #000;
 }
 
-.grid1 { grid-template-columns: 1fr; }
-.grid2 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr; }
-.grid4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
-
-.videoTile {
+.remoteVideoFull {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
 }
 
-.noVideo {
+.remoteGrid {
   width: 100%;
   height: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+}
+
+.remoteVideoGrid {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.waitingState {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: #1a1a2e;
+}
+
+.remoteEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.waitingText {
+  color: rgba(255,255,255,0.4);
+  font-size: 15px;
+  margin: 0;
+}
+
+.remoteName {
+  color: rgba(255,255,255,0.6);
+  font-size: 14px;
+  margin: 0;
+}
+
+/* Локальное видео — угол */
+.localVideoWrap {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  width: 90px;
+  height: 120px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid rgba(255,255,255,0.2);
   background: #1a1a2e;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  min-height: 120px;
+  z-index: 10;
 }
 
-.noVideoAvatar {
-  width: 64px;
-  height: 64px;
-  border-radius: 20px;
+.localVideo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.localLabel {
+  position: absolute;
+  bottom: 4px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 10px;
+  color: rgba(255,255,255,0.7);
+  margin: 0;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+}
+
+/* Аватары */
+.avatarLarge {
+  width: 80px;
+  height: 80px;
+  border-radius: 24px;
   background: #2a2a4a;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 26px;
+  font-size: 32px;
   color: rgba(255,255,255,0.6);
 }
 
-.noVideoName {
-  font-size: 14px;
-  color: rgba(255,255,255,0.4);
-  margin: 0;
+.avatarSmall {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: #2a2a4a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  color: rgba(255,255,255,0.6);
 }
 
+/* ── Чат ── */
 .chatPanel {
   position: fixed;
   right: 0;
   top: 0;
   bottom: 0;
-  width: min(320px, 85vw);
+  width: min(300px, 80vw);
   background: #1a1a1a;
   display: flex;
   flex-direction: column;
@@ -116,18 +192,8 @@
   margin-top: 40px;
 }
 
-.chatMsg {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.chatSender {
-  font-size: 11px;
-  font-weight: 500;
-  color: rgba(255,255,255,0.4);
-}
-
+.chatMsg { display: flex; flex-direction: column; gap: 2px; }
+.chatSender { font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.4); }
 .chatText {
   font-size: 14px;
   color: rgba(255,255,255,0.85);
@@ -137,7 +203,7 @@
   word-break: break-word;
 }
 
-.chatInput {
+.chatInputRow {
   display: flex;
   gap: 8px;
   padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px));
@@ -155,7 +221,6 @@
   outline: none;
   font-family: var(--font-body, system-ui);
 }
-
 .chatField::placeholder { color: rgba(255,255,255,0.3); }
 
 .chatSend {
@@ -166,60 +231,51 @@
   color: #fff;
   font-size: 16px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
+/* ── Контролы ── */
 .controls {
-  background: rgba(10,10,10,0.95);
-  backdrop-filter: blur(20px);
-  padding: 10px 12px calc(16px + env(safe-area-inset-bottom, 0px));
+  background: rgba(10,10,10,0.97);
+  padding: 10px 16px calc(16px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   gap: 10px;
   border-top: 1px solid rgba(255,255,255,0.06);
+  flex-shrink: 0;
 }
 
 .soundRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 4px;
+  padding: 0 2px;
 }
 
-.soundLabel {
-  font-size: 13px;
-  color: rgba(255,255,255,0.5);
-}
+.soundLabel { font-size: 13px; color: rgba(255,255,255,0.45); }
 
 .toggle {
   width: 40px;
   height: 24px;
   border-radius: 12px;
-  background: rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.18);
   border: none;
   cursor: pointer;
   position: relative;
   transition: background 0.2s;
   padding: 0;
+  flex-shrink: 0;
 }
-
-.toggle:disabled { opacity: 0.5; cursor: default; }
+.toggle:disabled { opacity: 0.5; }
 .toggleOn { background: #34c759; }
-
 .toggleThumb {
   position: absolute;
-  left: 3px;
-  top: 3px;
-  width: 18px;
-  height: 18px;
+  left: 3px; top: 3px;
+  width: 18px; height: 18px;
   border-radius: 50%;
   background: #fff;
   transition: transform 0.2s;
   display: block;
 }
-
 .toggleOn .toggleThumb { transform: translateX(16px); }
 
 .btnRow {
@@ -239,19 +295,20 @@
   border-radius: 14px;
   padding: 10px 8px 8px;
   cursor: pointer;
-  min-width: 56px;
+  min-width: 54px;
   transition: background 0.15s;
+  flex: 1;
+  max-width: 70px;
 }
-
-.ctrlBtn:active { background: rgba(255,255,255,0.15); }
+.ctrlBtn:active { opacity: 0.7; }
 .ctrlActive { background: rgba(255,255,255,0.18) !important; }
 .ctrlDanger { background: #ff3b30 !important; }
-.ctrlDanger:active { background: #cc2f26 !important; }
 
 .ctrlIcon { font-size: 20px; line-height: 1; }
-.ctrlLabel { font-size: 10px; color: rgba(255,255,255,0.55); white-space: nowrap; }
-.ctrlDanger .ctrlLabel { color: rgba(255,255,255,0.8); }
+.ctrlLabel { font-size: 10px; color: rgba(255,255,255,0.5); white-space: nowrap; }
+.ctrlDanger .ctrlLabel { color: rgba(255,255,255,0.85); }
 
+/* ── Загрузка/ошибка ── */
 .centerState {
   flex: 1;
   display: flex;
@@ -268,8 +325,7 @@
 }
 
 .avatarCircle {
-  width: 72px;
-  height: 72px;
+  width: 72px; height: 72px;
   border-radius: 22px;
   background: #1c1c28;
   display: flex;
@@ -291,7 +347,6 @@
   padding: 13px 40px;
   font-size: 15px;
   cursor: pointer;
-  font-family: var(--font-body, system-ui);
 }
 
 .dots { display: flex; gap: 6px; margin-top: 4px; }

@@ -5,6 +5,7 @@ import {
   useTracks,
   useLocalParticipant,
   useChat,
+  useParticipants,
 } from '@livekit/components-react'
 import { Track } from 'livekit-client'
 import { livekitApi } from '../api'
@@ -14,62 +15,107 @@ import styles from './CallScreen.module.css'
 const AUDIO_NORMAL = { noiseSuppression: true, echoCancellation: true, autoGainControl: true }
 const AUDIO_ORIGINAL = { noiseSuppression: false, echoCancellation: false, autoGainControl: false, sampleRate: 48000 }
 
-function VideoTile({ trackRef }) {
+function TrackVideo({ track, muted = false, className }) {
   const ref = useRef(null)
-
   useEffect(() => {
-    const track = trackRef?.publication?.track
     if (!track || !ref.current) return
     track.attach(ref.current)
     return () => { try { track.detach(ref.current) } catch {} }
-  }, [trackRef?.publication?.track])
+  }, [track])
+  return <video ref={ref} autoPlay playsInline muted={muted} className={className} />
+}
 
-  const name = trackRef?.participant?.name || '?'
-  const hasVideo = !!trackRef?.publication?.track
+function TrackAudio({ track }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    if (!track || !ref.current) return
+    track.attach(ref.current)
+    return () => { try { track.detach(ref.current) } catch {} }
+  }, [track])
+  return <audio ref={ref} autoPlay />
+}
 
+function Avatar({ name, large }) {
   return (
-    <div className={styles.tile}>
-      {hasVideo
-        ? <video ref={ref} autoPlay playsInline muted={trackRef?.participant?.isLocal} className={styles.tileVideo} />
-        : <div className={styles.tileEmpty}>
-            <div className={styles.tileAvatar}>{name.charAt(0).toUpperCase()}</div>
-            <p className={styles.tileName}>{name}</p>
-          </div>
-      }
-      <p className={styles.tileLabel}>{name}{trackRef?.participant?.isLocal ? ' (вы)' : ''}</p>
+    <div className={large ? styles.avatarLarge : styles.avatarSmall}>
+      <span>{(name || '?').charAt(0).toUpperCase()}</span>
     </div>
   )
 }
 
-function AudioTile({ trackRef }) {
-  const ref = useRef(null)
-  useEffect(() => {
-    const track = trackRef?.publication?.track
-    if (!track || !ref.current) return
-    track.attach(ref.current)
-    return () => { try { track.detach(ref.current) } catch {} }
-  }, [trackRef?.publication?.track])
-  return <audio ref={ref} autoPlay style={{ display: 'none' }} />
-}
+function VideoArea() {
+  const participants = useParticipants()
+  const { localParticipant } = useLocalParticipant()
 
-function VideoGrid() {
-  const videoTracks = useTracks(
-    [{ source: Track.Source.Camera, withPlaceholder: true },
+  const remoteTracks = useTracks(
+    [{ source: Track.Source.Camera, withPlaceholder: false },
      { source: Track.Source.ScreenShare, withPlaceholder: false }],
-    { onlySubscribed: false }
-  )
+    { onlySubscribed: true }
+  ).filter(t => !t.participant?.isLocal)
+
   const audioTracks = useTracks(
     [{ source: Track.Source.Microphone }],
     { onlySubscribed: true }
-  )
+  ).filter(t => !t.participant?.isLocal)
 
-  const count = videoTracks.length || 1
-  const gridClass = count === 1 ? styles.grid1 : count === 2 ? styles.grid2 : styles.grid4
+  const localCamPub = localParticipant?.getTrackPublication(Track.Source.Camera)
+  const localCamTrack = localCamPub?.track
+  const localName = localParticipant?.name || 'Вы'
+
+  const remoteParticipants = participants.filter(p => !p.isLocal)
+  const hasRemoteVideo = remoteTracks.length > 0
 
   return (
-    <div className={`${styles.videoGrid} ${gridClass}`}>
-      {videoTracks.map((t, i) => <VideoTile key={i} trackRef={t} />)}
-      {audioTracks.filter(t => !t.participant?.isLocal).map((t, i) => <AudioTile key={i} trackRef={t} />)}
+    <div className={styles.videoArea}>
+      {/* Аудио (невидимое) */}
+      {audioTracks.map((t, i) => (
+        t.publication?.track && <TrackAudio key={i} track={t.publication.track} />
+      ))}
+
+      {/* Основная зона — удалённые участники */}
+      <div className={styles.remoteArea}>
+        {remoteTracks.length === 0 ? (
+          <div className={styles.waitingState}>
+            {remoteParticipants.length === 0 ? (
+              <>
+                <Avatar name="?" large />
+                <p className={styles.waitingText}>Ожидание участника...</p>
+              </>
+            ) : (
+              remoteParticipants.map(p => (
+                <div key={p.identity} className={styles.remoteEmpty}>
+                  <Avatar name={p.name} large />
+                  <p className={styles.remoteName}>{p.name}</p>
+                </div>
+              ))
+            )}
+          </div>
+        ) : remoteTracks.length === 1 ? (
+          <TrackVideo
+            track={remoteTracks[0].publication?.track}
+            className={styles.remoteVideoFull}
+          />
+        ) : (
+          <div className={styles.remoteGrid}>
+            {remoteTracks.map((t, i) => (
+              <TrackVideo
+                key={i}
+                track={t.publication?.track}
+                className={styles.remoteVideoGrid}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Локальное видео — маленькое в углу */}
+      <div className={styles.localVideoWrap}>
+        {localCamTrack
+          ? <TrackVideo track={localCamTrack} muted className={styles.localVideo} />
+          : <Avatar name={localName} />
+        }
+        <p className={styles.localLabel}>Вы</p>
+      </div>
     </div>
   )
 }
@@ -119,6 +165,18 @@ function ChatPanel({ onClose }) {
   )
 }
 
+function CtrlBtn({ icon, label, active, danger, onClick }) {
+  return (
+    <button
+      className={`${styles.ctrlBtn} ${active ? styles.ctrlActive : ''} ${danger ? styles.ctrlDanger : ''}`}
+      onClick={onClick}
+    >
+      <span className={styles.ctrlIcon}>{icon}</span>
+      <span className={styles.ctrlLabel}>{label}</span>
+    </button>
+  )
+}
+
 function Controls({ onHangUp, showChat, setShowChat, isClient }) {
   const room = useRoomContext()
   const { localParticipant } = useLocalParticipant()
@@ -142,9 +200,8 @@ function Controls({ onHangUp, showChat, setShowChat, isClient }) {
 
   const toggleScreen = async () => {
     try {
-      const next = !screen
-      await localParticipant.setScreenShareEnabled(next)
-      setScreen(next)
+      await localParticipant.setScreenShareEnabled(!screen)
+      setScreen(v => !v)
     } catch { setScreen(false) }
   }
 
@@ -171,7 +228,11 @@ function Controls({ onHangUp, showChat, setShowChat, isClient }) {
     <div className={styles.controls}>
       <div className={styles.soundRow}>
         <span className={styles.soundLabel}>Оригинальный звук</span>
-        <button className={`${styles.toggle} ${originalSound ? styles.toggleOn : ''}`} onClick={toggleOriginal} disabled={toggling}>
+        <button
+          className={`${styles.toggle} ${originalSound ? styles.toggleOn : ''}`}
+          onClick={toggleOriginal}
+          disabled={toggling}
+        >
           <span className={styles.toggleThumb} />
         </button>
       </div>
@@ -186,22 +247,11 @@ function Controls({ onHangUp, showChat, setShowChat, isClient }) {
   )
 }
 
-function CtrlBtn({ icon, label, active, danger, onClick }) {
-  return (
-    <button className={`${styles.ctrlBtn} ${active ? styles.ctrlActive : ''} ${danger ? styles.ctrlDanger : ''}`} onClick={onClick}>
-      <span className={styles.ctrlIcon}>{icon}</span>
-      <span className={styles.ctrlLabel}>{label}</span>
-    </button>
-  )
-}
-
 function InnerCall({ onHangUp, isClient }) {
   const [showChat, setShowChat] = useState(false)
   return (
     <div className={styles.callWrap}>
-      <div className={styles.videoWrap}>
-        <VideoGrid />
-      </div>
+      <VideoArea />
       {showChat && <ChatPanel onClose={() => setShowChat(false)} />}
       <Controls onHangUp={onHangUp} showChat={showChat} setShowChat={setShowChat} isClient={isClient} />
     </div>
