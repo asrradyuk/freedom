@@ -1,5 +1,5 @@
 .header {
-  padding: 20px 20px 12px;
+  padding: 20px 20px 4px;
 }
 
 .title {
@@ -10,23 +10,25 @@
   color: var(--gray-dark);
 }
 
-.avatarSection {
+/* ── Герой-блок с аватаркой ── */
+.hero {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  padding: 24px 20px 20px;
+  gap: 10px;
+  padding: 20px 20px 24px;
 }
 
 .avatarWrap {
-  width: 90px;
-  height: 90px;
+  width: 88px;
+  height: 88px;
   border-radius: 28px;
   background: var(--blue-light);
   position: relative;
   overflow: hidden;
   cursor: pointer;
   flex-shrink: 0;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.10);
 }
 
 .avatarImg {
@@ -51,42 +53,40 @@
 .avatarOverlay {
   position: absolute;
   inset: 0;
-  background: rgba(0,0,0,0.4);
+  background: rgba(0,0,0,0.38);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 24px;
   opacity: 0;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.15s;
 }
-
 .avatarWrap:hover .avatarOverlay,
-.avatarWrap:active .avatarOverlay {
-  opacity: 1;
-}
+.avatarWrap:active .avatarOverlay { opacity: 1; }
 
 .nameRow {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .name {
   font-family: var(--font-display);
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--gray-dark);
-  letter-spacing: -0.3px;
+  letter-spacing: -0.4px;
 }
 
 .editNameBtn {
   background: none;
-  font-size: 16px;
+  font-size: 15px;
   padding: 4px;
-  opacity: 0.6;
+  opacity: 0.5;
+  border: none;
+  cursor: pointer;
   transition: opacity 0.15s;
 }
-
 .editNameBtn:hover { opacity: 1; }
 
 .nameEdit {
@@ -98,11 +98,13 @@
 }
 
 .tgLink {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--blue-text);
   font-weight: 500;
+  opacity: 0.8;
 }
 
+/* ── Подписка ── */
 .subCard { margin-bottom: 12px; }
 
 .subRow {
@@ -113,11 +115,11 @@
 }
 
 .subLabel {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--gray-mid);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.6px;
   margin-bottom: 4px;
 }
 
@@ -127,6 +129,77 @@
   color: var(--gray-dark);
 }
 
+/* ── Статистика ── */
+.statsRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.statCard {
+  background: var(--white, #fff);
+  border-radius: var(--radius-md, 16px);
+  padding: 16px;
+  text-align: center;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+}
+
+.statNum {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--gray-dark);
+  letter-spacing: -0.5px;
+  margin: 0 0 3px;
+  line-height: 1;
+}
+
+.statLabel {
+  font-size: 12px;
+  color: var(--gray-mid);
+  margin: 0;
+  font-weight: 500;
+}
+
+/* ── Ссылка-приглашение ── */
+.inviteCard {
+  margin-bottom: 12px;
+  background: linear-gradient(135deg, #EEF4FF 0%, #F0F7FF 100%) !important;
+  border: 1.5px solid rgba(74,158,255,0.15) !important;
+}
+
+.inviteTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--gray-dark);
+  margin: 0 0 3px;
+}
+
+.inviteText {
+  font-size: 13px;
+  color: var(--gray-mid);
+  margin: 0 0 12px;
+  line-height: 1.4;
+}
+
+.inviteBtn {
+  width: 100%;
+  background: var(--blue-mid, #4a9eff);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-body, system-ui);
+  transition: opacity 0.15s;
+  letter-spacing: -0.1px;
+}
+.inviteBtn:active { opacity: 0.8; }
+
+/* ── Инфо ── */
 .infoCard { margin-bottom: 12px; }
 
 .infoRow {
@@ -136,29 +209,26 @@
   padding: 10px 0;
   border-bottom: 1px solid var(--gray-light);
 }
-
-.infoRow:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
-}
+.infoRow:last-child { border-bottom: none; padding-bottom: 0; }
 
 .infoLabel { font-size: 13px; color: var(--gray-mid); }
 .infoValue { font-size: 13px; font-weight: 500; color: var(--gray-dark); }
 .infoLink { font-size: 13px; font-weight: 500; color: var(--blue-text); }
 
+/* ── Сменить роль ── */
 .switchRoleBtn {
   width: 100%;
   background: none;
   font-size: 14px;
   color: var(--gray-mid);
   padding: 16px;
-  margin-top: 8px;
+  margin-top: 4px;
   border: 1.5px solid var(--gray-light);
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: all 0.15s;
+  font-family: var(--font-body, system-ui);
 }
-
 .switchRoleBtn:hover {
   border-color: var(--gray-mid);
   color: var(--gray-dark);

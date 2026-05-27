@@ -88,7 +88,7 @@ export function ProfileScreen() {
 
       <div className="screen-content">
         {/* Аватар и имя */}
-        <div className={styles.avatarSection}>
+        <div className={styles.hero}>
           <div className={styles.avatarWrap} onClick={() => !uploadingAvatar && fileRef.current?.click()}>
             {showAvatar
               ? <img src={avatarSrc} alt="avatar" className={styles.avatarImg} onError={() => setAvatarError(true)} />
