@@ -7,14 +7,16 @@ import api from '../api'
 import styles from './ProfileScreen.module.css'
 
 const BASE_URL = 'https://freedom-b3m3.onrender.com'
+const BOT_USERNAME = 'freedom_call_bot'
 
 export function ProfileScreen() {
-  const { user, setUser, setActiveScreen, subscriptionActive, setRole } = useAppStore()
+  const { user, setUser, setActiveScreen, subscriptionActive, setRole, clients } = useAppStore()
   const [editing, setEditing] = useState(false)
   const [displayName, setDisplayName] = useState('')
   const [saving, setSaving] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [avatarError, setAvatarError] = useState(false)
+  const [copied, setCopied] = useState(false)
   const fileRef = useRef()
 
   useEffect(() => {
@@ -23,9 +25,7 @@ export function ProfileScreen() {
   }, [user])
 
   const avatarSrc = user?.avatar_url
-    ? user.avatar_url.startsWith('http')
-      ? user.avatar_url
-      : `${BASE_URL}${user.avatar_url}`
+    ? user.avatar_url.startsWith('http') ? user.avatar_url : `${BASE_URL}${user.avatar_url}`
     : null
 
   const showAvatar = avatarSrc && !avatarError
@@ -41,9 +41,7 @@ export function ProfileScreen() {
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success')
     } catch {
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')
-    } finally {
-      setSaving(false)
-    }
+    } finally { setSaving(false) }
   }
 
   const handleAvatarUpload = async (e) => {
@@ -59,24 +57,28 @@ export function ProfileScreen() {
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success')
     } catch {
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')
-    } finally {
-      setUploadingAvatar(false)
-      e.target.value = ''
-    }
+    } finally { setUploadingAvatar(false); e.target.value = '' }
   }
 
-  const handleSwitchRole = () => {
-    setRole(null)
-    window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('medium')
+  const handleCopyInvite = () => {
+    const link = `https://t.me/${BOT_USERNAME}?start=specialist_${user?.tg_id}`
+    navigator.clipboard?.writeText(link)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+    window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success')
   }
 
   const tgLink = user?.username ? `https://t.me/${user.username}` : null
 
   const expiresAt = user?.subscription_expires_at
-    ? new Date(user.subscription_expires_at).toLocaleDateString('ru-RU', {
-        day: 'numeric', month: 'long', year: 'numeric',
-      })
+    ? new Date(user.subscription_expires_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
     : null
+
+  const createdAt = user?.created_at
+    ? new Date(user.created_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+    : null
+
+  const totalClients = clients?.length || 0
 
   return (
     <div className="screen">
@@ -85,21 +87,13 @@ export function ProfileScreen() {
       </div>
 
       <div className="screen-content">
+        {/* Аватар и имя */}
         <div className={styles.avatarSection}>
-          <div
-            className={styles.avatarWrap}
-            onClick={() => !uploadingAvatar && fileRef.current?.click()}
-          >
-            {showAvatar ? (
-              <img
-                src={avatarSrc}
-                alt="avatar"
-                className={styles.avatarImg}
-                onError={() => setAvatarError(true)}
-              />
-            ) : (
-              <div className={styles.avatarFallback}>{initials}</div>
-            )}
+          <div className={styles.avatarWrap} onClick={() => !uploadingAvatar && fileRef.current?.click()}>
+            {showAvatar
+              ? <img src={avatarSrc} alt="avatar" className={styles.avatarImg} onError={() => setAvatarError(true)} />
+              : <div className={styles.avatarFallback}>{initials}</div>
+            }
             <div className={styles.avatarOverlay}>
               <span>{uploadingAvatar ? '⏳' : '📷'}</span>
             </div>
@@ -108,20 +102,12 @@ export function ProfileScreen() {
 
           {editing ? (
             <div className={styles.nameEdit}>
-              <Input
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Твоё имя"
-                autoFocus
-              />
+              <Input value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="Твоё имя" autoFocus />
               <div style={{ display: 'flex', gap: 8 }}>
                 <Button variant="primary" size="sm" onClick={handleSave} disabled={saving || !displayName.trim()}>
                   {saving ? '...' : 'Сохранить'}
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => {
-                  setEditing(false)
-                  setDisplayName(user?.display_name || user?.first_name || '')
-                }}>
+                <Button variant="ghost" size="sm" onClick={() => { setEditing(false); setDisplayName(user?.display_name || user?.first_name || '') }}>
                   Отмена
                 </Button>
               </div>
@@ -140,6 +126,7 @@ export function ProfileScreen() {
           )}
         </div>
 
+        {/* Подписка */}
         <Card className={styles.subCard} variant={subscriptionActive ? 'flat' : 'default'}>
           <div className={styles.subRow}>
             <div>
@@ -156,6 +143,28 @@ export function ProfileScreen() {
           </div>
         </Card>
 
+        {/* Статистика */}
+        <div className={styles.statsRow}>
+          <div className={styles.statCard}>
+            <p className={styles.statNum}>{totalClients}</p>
+            <p className={styles.statLabel}>Клиентов</p>
+          </div>
+          <div className={styles.statCard}>
+            <p className={styles.statNum}>{createdAt ? new Date(user.created_at).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }) : '—'}</p>
+            <p className={styles.statLabel}>С нами с</p>
+          </div>
+        </div>
+
+        {/* Ссылка-приглашение */}
+        <Card variant="flat" className={styles.inviteCard}>
+          <p className={styles.inviteTitle}>Ссылка для клиентов</p>
+          <p className={styles.inviteText}>Отправь клиенту — он сразу попадёт в приложение</p>
+          <button className={styles.inviteBtn} onClick={handleCopyInvite}>
+            {copied ? '✅ Скопировано!' : '🔗 Скопировать ссылку'}
+          </button>
+        </Card>
+
+        {/* Инфо */}
         <Card variant="flat" className={styles.infoCard}>
           <div className={styles.infoRow}>
             <span className={styles.infoLabel}>Telegram ID</span>
@@ -164,14 +173,18 @@ export function ProfileScreen() {
           {user?.username && (
             <div className={styles.infoRow}>
               <span className={styles.infoLabel}>Username</span>
-              <a href={tgLink} target="_blank" rel="noreferrer" className={styles.infoLink}>
-                @{user.username}
-              </a>
+              <a href={tgLink} target="_blank" rel="noreferrer" className={styles.infoLink}>@{user.username}</a>
+            </div>
+          )}
+          {createdAt && (
+            <div className={styles.infoRow}>
+              <span className={styles.infoLabel}>В FREEDOM с</span>
+              <span className={styles.infoValue}>{createdAt}</span>
             </div>
           )}
         </Card>
 
-        <button className={styles.switchRoleBtn} onClick={handleSwitchRole}>
+        <button className={styles.switchRoleBtn} onClick={() => { setRole(null); window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('medium') }}>
           Сменить роль
         </button>
       </div>

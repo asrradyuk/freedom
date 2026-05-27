@@ -35,8 +35,9 @@ function TrackAudio({ track }) {
   return <audio ref={ref} autoPlay />
 }
 
-function VideoArea({ isClient }) {
+function VideoArea() {
   const { localParticipant } = useLocalParticipant()
+  const participants = useParticipants()
 
   const remoteCamTracks = useTracks(
     [{ source: Track.Source.Camera, withPlaceholder: false }],
@@ -61,19 +62,14 @@ function VideoArea({ isClient }) {
   const localCamTrack = localParticipant?.getTrackPublication(Track.Source.Camera)?.track
   const localName = localParticipant?.name || 'Вы'
 
-  // Главное видео: чужой экран > своя демонстрация > чужая камера
   const mainTrack = remoteScreenTracks[0]?.publication?.track
     || localScreenTracks[0]?.publication?.track
     || remoteCamTracks[0]?.publication?.track
-
   const mainMuted = !remoteScreenTracks[0] && !!localScreenTracks[0]
-
-  // Второй тайл (пип) — чужая камера если идёт демонстрация
   const pipTrack = (remoteScreenTracks[0] || localScreenTracks[0])
     ? remoteCamTracks[0]?.publication?.track
     : null
 
-  const participants = useParticipants()
   const remoteParticipant = participants.find(p => !p.isLocal)
 
   return (
@@ -81,8 +77,6 @@ function VideoArea({ isClient }) {
       {audioTracks.map((t, i) =>
         t.publication?.track && <TrackAudio key={i} track={t.publication.track} />
       )}
-
-      {/* Основное видео */}
       <div className={styles.mainVideo}>
         {mainTrack ? (
           <TrackVideo track={mainTrack} muted={mainMuted} className={styles.mainVideoEl} />
@@ -97,15 +91,11 @@ function VideoArea({ isClient }) {
           </div>
         )}
       </div>
-
-      {/* PiP — второй участник поверх */}
       {pipTrack && (
         <div className={styles.pip}>
           <TrackVideo track={pipTrack} className={styles.pipVideo} />
         </div>
       )}
-
-      {/* Локальное видео в углу */}
       <div className={styles.localWrap}>
         {localCamTrack
           ? <TrackVideo track={localCamTrack} muted className={styles.localVideo} />
@@ -167,25 +157,63 @@ function Controls({ onHangUp, showChat, setShowChat, isClient }) {
   const [originalSound, setOriginalSound] = useState(false)
   const [toggling, setToggling] = useState(false)
 
-  const toggleMic = async () => { const n = !mic; await localParticipant.setMicrophoneEnabled(n); setMic(n) }
-  const toggleCam = async () => { const n = !cam; await localParticipant.setCameraEnabled(n); setCam(n) }
+  const toggleMic = async () => {
+    const next = !mic
+    if (next) {
+      await localParticipant.setMicrophoneEnabled(true)
+    } else {
+      // физически останавливаем медиапоток
+      const pub = localParticipant.getTrackPublication(Track.Source.Microphone)
+      if (pub?.track?.mediaStreamTrack) {
+        pub.track.mediaStreamTrack.stop()
+      }
+      await localParticipant.setMicrophoneEnabled(false)
+    }
+    setMic(next)
+  }
+
+  const toggleCam = async () => {
+    const next = !cam
+    if (!next) {
+      const pub = localParticipant.getTrackPublication(Track.Source.Camera)
+      if (pub?.track?.mediaStreamTrack) {
+        pub.track.mediaStreamTrack.stop()
+      }
+    }
+    await localParticipant.setCameraEnabled(next)
+    setCam(next)
+  }
+
   const toggleScreen = async () => {
     try { await localParticipant.setScreenShareEnabled(!screen); setScreen(v => !v) }
     catch { setScreen(false) }
   }
+
   const toggleOriginal = async () => {
     setToggling(true)
     try {
       const next = !originalSound
+      // останавливаем текущий трек
+      const pub = localParticipant.getTrackPublication(Track.Source.Microphone)
+      if (pub?.track?.mediaStreamTrack) pub.track.mediaStreamTrack.stop()
+      await localParticipant.setMicrophoneEnabled(false)
+      // публикуем новый трек с нужными параметрами
       const stream = await navigator.mediaDevices.getUserMedia({ audio: next ? AUDIO_ORIGINAL : AUDIO_NORMAL })
       const track = stream.getAudioTracks()[0]
-      await localParticipant.setMicrophoneEnabled(false)
       await localParticipant.publishTrack(track, { source: 'microphone' })
-      await localParticipant.setMicrophoneEnabled(true)
-      setOriginalSound(next); setMic(true)
+      setOriginalSound(next)
+      setMic(true)
     } catch {} finally { setToggling(false) }
   }
-  const hangUp = async () => { await room.disconnect(); onHangUp() }
+
+  const hangUp = async () => {
+    // останавливаем все треки перед отключением
+    localParticipant.getTrackPublications().forEach(pub => {
+      pub.track?.mediaStreamTrack?.stop()
+    })
+    await room.disconnect()
+    onHangUp()
+  }
 
   return (
     <div className={styles.controls}>
@@ -210,7 +238,7 @@ function InnerCall({ onHangUp, isClient }) {
   const [showChat, setShowChat] = useState(false)
   return (
     <div className={styles.callWrap}>
-      <VideoArea isClient={isClient} />
+      <VideoArea />
       {showChat && <ChatPanel onClose={() => setShowChat(false)} />}
       <Controls onHangUp={onHangUp} showChat={showChat} setShowChat={setShowChat} isClient={isClient} />
     </div>

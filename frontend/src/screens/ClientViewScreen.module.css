@@ -7,23 +7,51 @@
 
 .header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   padding: 20px 20px 12px;
 }
 
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.specialistAvatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--blue-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--blue-dark);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.specialistAvatarImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .title {
   font-family: var(--font-display);
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 700;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.4px;
   color: var(--gray-dark);
+  margin: 0;
 }
 
 .subtitle {
   font-size: 13px;
   color: var(--gray-mid);
-  margin-top: 2px;
+  margin: 0;
 }
 
 .roleBtn {
@@ -31,16 +59,48 @@
   font-size: 13px;
   color: var(--gray-mid);
   padding: 6px 0;
-  white-space: nowrap;
-  margin-top: 4px;
+  border: none;
+  cursor: pointer;
 }
 
+/* Ближайшее занятие */
+.nextSession {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 20px 12px;
+  background: var(--blue-light);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+}
+
+.nextSessionLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--blue-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 3px;
+}
+
+.nextSessionTime {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--blue-dark);
+  margin: 0;
+  font-family: var(--font-display);
+}
+
+.nextSessionRight { flex-shrink: 0; }
+
+/* Кнопки действий */
 .actions {
   display: flex;
   gap: 10px;
   padding: 0 20px 12px;
 }
 
+/* Табы */
 .tabs {
   display: flex;
   gap: 8px;
@@ -91,13 +151,25 @@
   padding: 14px 16px !important;
 }
 
-.timeBlock { min-width: 44px; }
+.cardNext {
+  border: 1.5px solid var(--blue-mid) !important;
+}
+
+.timeBlock { min-width: 52px; }
 
 .time {
   font-family: var(--font-display);
   font-size: 15px;
   font-weight: 600;
   color: var(--blue-dark);
+}
+
+.nextBadge {
+  display: block;
+  font-size: 10px;
+  color: var(--blue-mid);
+  font-weight: 500;
+  margin-top: 2px;
 }
 
 .info { flex: 1; }
@@ -119,17 +191,15 @@
 .paid { background: #E6F9F0; color: #1A7A4A; }
 .unpaid { background: #FFF3E0; color: #B45309; }
 
+/* Материалы */
 .materialCard {
   display: flex !important;
   align-items: center;
   gap: 12px;
   padding: 14px 16px !important;
 }
-
 .fileIcon { font-size: 26px; flex-shrink: 0; }
-
 .fileInfo { flex: 1; min-width: 0; }
-
 .fileName {
   font-size: 14px;
   font-weight: 600;
@@ -138,15 +208,18 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
 .fileMeta { font-size: 12px; color: var(--gray-mid); margin-top: 2px; }
-
 .downloadBtn {
   color: var(--blue-text);
   display: flex;
-  padding: 8px;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
   border-radius: 10px;
   background: var(--blue-light);
+  font-size: 16px;
+  text-decoration: none;
   flex-shrink: 0;
 }
 
@@ -158,10 +231,9 @@
   gap: 8px;
   text-align: center;
 }
-
 .emptyIcon { font-size: 40px; margin-bottom: 8px; }
-.emptyTitle { font-family: var(--font-display); font-size: 16px; font-weight: 600; color: var(--gray-dark); }
-.emptyText { font-size: 14px; color: var(--gray-mid); line-height: 1.5; }
+.emptyTitle { font-family: var(--font-display); font-size: 16px; font-weight: 600; color: var(--gray-dark); margin: 0; }
+.emptyText { font-size: 14px; color: var(--gray-mid); line-height: 1.5; margin: 0; }
 
 .spinner {
   width: 32px; height: 32px;

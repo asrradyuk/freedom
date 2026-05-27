@@ -6,19 +6,18 @@ import { Button } from '../components/ui/Button'
 import api from '../api'
 import styles from './ClientViewScreen.module.css'
 
-const BASE_URL = 'https://freedom-b3m3.onrender.com/api/v1'
+const BASE_URL = 'https://freedom-b3m3.onrender.com'
+const API_URL = 'https://freedom-b3m3.onrender.com/api/v1'
 
 function formatDateTime(dateStr) {
   const d = new Date(dateStr)
   const today = new Date()
   const tomorrow = new Date()
   tomorrow.setDate(today.getDate() + 1)
-
   let dayLabel
   if (d.toDateString() === today.toDateString()) dayLabel = 'Сегодня'
   else if (d.toDateString() === tomorrow.toDateString()) dayLabel = 'Завтра'
   else dayLabel = d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
-
   const time = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
   return { dayLabel, time }
 }
@@ -28,7 +27,6 @@ function groupSessions(sessions) {
   const upcoming = sessions
     .filter(s => new Date(s.scheduled_at) >= now)
     .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at))
-
   const groups = {}
   upcoming.forEach(s => {
     const { dayLabel } = formatDateTime(s.scheduled_at)
@@ -65,11 +63,11 @@ export function ClientViewScreen() {
   const [tab, setTab] = useState('sessions')
   const [callToken, setCallToken] = useState(null)
   const [joiningCall, setJoiningCall] = useState(false)
+  const [specialistAvatarError, setSpecialistAvatarError] = useState(false)
 
   useEffect(() => {
     const tgId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id
     if (!tgId) { setLoading(false); return }
-
     api.get(`/clients/by-tg/${tgId}`)
       .then(r => setClientInfo(r.data))
       .catch(() => {})
@@ -81,16 +79,11 @@ export function ClientViewScreen() {
     setJoiningCall(true)
     try {
       const tgId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id
-      const res = await api.post(
-        `/livekit/client-token/${clientInfo.client_id}?tg_id=${tgId}`
-      )
-      const { token, url } = res.data
-      setCallToken({ token, url, room: res.data.room })
+      const res = await api.post(`/livekit/client-token/${clientInfo.client_id}?tg_id=${tgId}`)
+      setCallToken({ token: res.data.token, url: res.data.url })
     } catch {
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')
-    } finally {
-      setJoiningCall(false)
-    }
+    } finally { setJoiningCall(false) }
   }
 
   if (callToken) {
@@ -98,54 +91,80 @@ export function ClientViewScreen() {
   }
 
   const groups = clientInfo ? groupSessions(clientInfo.sessions || []) : {}
-  const hasUpcoming = Object.keys(groups).length > 0
   const materials = clientInfo?.materials || []
+
+  // Ближайшее занятие
+  const allUpcoming = Object.values(groups).flat()
+  const nextSession = allUpcoming[0]
+
+  // Аватарка специалиста
+  const specialistAvatarSrc = clientInfo?.specialist_avatar
+    ? clientInfo.specialist_avatar.startsWith('http')
+      ? clientInfo.specialist_avatar
+      : `${BASE_URL}${clientInfo.specialist_avatar}`
+    : null
 
   return (
     <div className={styles.screen}>
       <div className={styles.header}>
-        <div>
-          <h1 className={styles.title}>Мои занятия</h1>
-          {clientInfo?.specialist_name && (
-            <p className={styles.subtitle}>Специалист: {clientInfo.specialist_name}</p>
-          )}
+        <div className={styles.headerLeft}>
+          {/* Аватарка специалиста */}
+          <div className={styles.specialistAvatar}>
+            {specialistAvatarSrc && !specialistAvatarError ? (
+              <img src={specialistAvatarSrc} alt="specialist" className={styles.specialistAvatarImg}
+                onError={() => setSpecialistAvatarError(true)} />
+            ) : (
+              <span>{(clientInfo?.specialist_name || '?').charAt(0).toUpperCase()}</span>
+            )}
+          </div>
+          <div>
+            <h1 className={styles.title}>Мои занятия</h1>
+            {clientInfo?.specialist_name && (
+              <p className={styles.subtitle}>{clientInfo.specialist_name}</p>
+            )}
+          </div>
         </div>
-        <button className={styles.roleBtn} onClick={() => setRole(null)}>
-          Сменить роль
-        </button>
+        <button className={styles.roleBtn} onClick={() => setRole(null)}>Выйти</button>
       </div>
 
+      {/* Ближайшее занятие — баннер */}
+      {nextSession && (
+        <div className={styles.nextSession}>
+          <div className={styles.nextSessionLeft}>
+            <p className={styles.nextSessionLabel}>Следующее занятие</p>
+            <p className={styles.nextSessionTime}>
+              {formatDateTime(nextSession.scheduled_at).dayLabel} · {formatDateTime(nextSession.scheduled_at).time}
+            </p>
+          </div>
+          <div className={styles.nextSessionRight}>
+            <span className={`${styles.badge} ${nextSession.payment_status === 'paid' ? styles.paid : styles.unpaid}`}>
+              {nextSession.payment_status === 'paid' ? 'Оплачено' : 'Не оплачено'}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Кнопки действий */}
       {clientInfo && (
         <div className={styles.actions}>
           {clientInfo.meeting_url && (
             <a href={clientInfo.meeting_url} target="_blank" rel="noreferrer" style={{ flex: 1 }}>
-              <Button variant="primary" size="md" style={{ width: '100%' }}>
-                🔗 Открыть встречу
-              </Button>
+              <Button variant="primary" size="md" style={{ width: '100%' }}>🔗 Открыть встречу</Button>
             </a>
           )}
           {clientInfo.livekit_room && (
-            <Button
-              variant="secondary"
-              size="md"
-              style={{ flex: 1 }}
-              onClick={handleJoinCall}
-              disabled={joiningCall}
-            >
+            <Button variant="secondary" size="md" style={{ flex: 1 }} onClick={handleJoinCall} disabled={joiningCall}>
               {joiningCall ? '...' : '📹 Подключиться'}
             </Button>
           )}
         </div>
       )}
 
+      {/* Табы */}
       {clientInfo && (
         <div className={styles.tabs}>
           {TABS.map(t => (
-            <button
-              key={t}
-              className={`${styles.tab} ${tab === t ? styles.tabActive : ''}`}
-              onClick={() => setTab(t)}
-            >
+            <button key={t} className={`${styles.tab} ${tab === t ? styles.tabActive : ''}`} onClick={() => setTab(t)}>
               {TAB_LABELS[t]}
             </button>
           ))}
@@ -159,28 +178,27 @@ export function ClientViewScreen() {
           <div className={styles.empty}>
             <span className={styles.emptyIcon}>📅</span>
             <p className={styles.emptyTitle}>Вы не привязаны к специалисту</p>
-            <p className={styles.emptyText}>
-              Попросите специалиста добавить ваш Telegram ID в вашу карточку
-            </p>
+            <p className={styles.emptyText}>Попросите специалиста добавить ваш Telegram ID в вашу карточку</p>
           </div>
         ) : tab === 'sessions' ? (
-          !hasUpcoming ? (
+          Object.keys(groups).length === 0 ? (
             <div className={styles.empty}>
               <span className={styles.emptyIcon}>📅</span>
               <p className={styles.emptyTitle}>Нет предстоящих занятий</p>
-              <p className={styles.emptyText}>Следующие занятия появятся здесь</p>
             </div>
           ) : (
             Object.entries(groups).map(([day, daySessions]) => (
               <div key={day} className={styles.group}>
                 <p className={styles.dayLabel}>{day}</p>
                 <div className={styles.list}>
-                  {daySessions.map(s => {
+                  {daySessions.map((s, i) => {
                     const { time } = formatDateTime(s.scheduled_at)
+                    const isNext = i === 0 && day === Object.keys(groups)[0]
                     return (
-                      <Card key={s.id} className={styles.card}>
+                      <Card key={s.id} className={`${styles.card} ${isNext ? styles.cardNext : ''}`}>
                         <div className={styles.timeBlock}>
                           <p className={styles.time}>{time}</p>
+                          {isNext && <span className={styles.nextBadge}>Ближайшее</span>}
                         </div>
                         <div className={styles.info}>
                           <p className={styles.specialistName}>{clientInfo.specialist_name}</p>
@@ -212,15 +230,11 @@ export function ClientViewScreen() {
                     <p className={styles.fileMeta}>{formatSize(m.file_size)}</p>
                   </div>
                   <a
-                    href={`${BASE_URL}/clients/${clientInfo.client_id}/materials/${m.id}/download`}
+                    href={`${API_URL}/clients/${clientInfo.client_id}/materials/${m.id}/download`}
                     className={styles.downloadBtn}
                     download={m.original_name}
                   >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                      <polyline points="7 10 12 15 17 10"/>
-                      <line x1="12" y1="15" x2="12" y2="3"/>
-                    </svg>
+                    ↓
                   </a>
                 </Card>
               ))}
