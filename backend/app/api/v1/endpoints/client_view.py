@@ -13,6 +13,7 @@ router = APIRouter()
 class ClientViewOut(BaseModel):
     client_id: str
     specialist_name: str | None
+    specialist_tg_id: int | None
     specialist_avatar: str | None
     meeting_url: str | None
     livekit_room: str | None
@@ -70,6 +71,7 @@ async def get_client_by_tg(
 
     return ClientViewOut(
         client_id=str(client.id),
+        specialist_tg_id=specialist.tg_id if specialist else None,
         specialist_name=(specialist.display_name or specialist.first_name) if specialist else None,
         specialist_avatar=specialist.avatar_url if specialist else None,
         meeting_url=client.meeting_url,
