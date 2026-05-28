@@ -53,16 +53,27 @@ function formatSize(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(1)} МБ`
 }
 
-function Avatar({ url, username, name, size = 44, radius = 14 }) {
+function Avatar({ url, tgId, name, size = 44, radius = 14 }) {
   const [err, setErr] = useState(false)
-  const src = url
-    ? url.startsWith('http') ? url : `${BASE_URL}${url}`
-    : username ? `https://t.me/i/userpic/320/${username}.jpg` : null
+  const src = !err
+    ? (url
+        ? url.startsWith('http') ? url : `${BASE_URL}${url}`
+        : tgId
+        ? `${BASE_URL}/api/v1/profile/tg-avatar/${tgId}`
+        : null)
+    : null
   const initials = (name || '?').charAt(0).toUpperCase()
   return (
-    <div style={{ width: size, height: size, borderRadius: radius, background: 'var(--blue-light)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.4, fontWeight: 700, color: 'var(--blue-dark)' }}>
-      {src && !err
-        ? <img src={src} alt={name} onError={() => setErr(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+    <div style={{
+      width: size, height: size, borderRadius: radius,
+      background: 'var(--blue-light)', overflow: 'hidden',
+      flexShrink: 0, display: 'flex', alignItems: 'center',
+      justifyContent: 'center', fontSize: size * 0.4,
+      fontWeight: 700, color: 'var(--blue-dark)',
+    }}>
+      {src
+        ? <img src={src} alt={name} onError={() => setErr(true)}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         : initials
       }
     </div>
@@ -80,10 +91,14 @@ export function ClientViewScreen() {
   const [callToken, setCallToken] = useState(null)
   const [joiningCall, setJoiningCall] = useState(false)
 
+  const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user
+  const myTgId = tgUser?.id
+  const clientName = tgUser?.first_name || user?.first_name || 'Клиент'
+  const clientUsername = tgUser?.username || user?.username
+
   useEffect(() => {
-    const tgId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id
-    if (!tgId) { setLoading(false); return }
-    api.get(`/clients/by-tg/${tgId}`)
+    if (!myTgId) { setLoading(false); return }
+    api.get(`/clients/by-tg/${myTgId}`)
       .then(r => setClientInfo(r.data))
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -93,8 +108,7 @@ export function ClientViewScreen() {
     if (!clientInfo?.livekit_room) return
     setJoiningCall(true)
     try {
-      const tgId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id
-      const res = await api.post(`/livekit/client-token/${clientInfo.client_id}?tg_id=${tgId}`)
+      const res = await api.post(`/livekit/client-token/${clientInfo.client_id}?tg_id=${myTgId}`)
       setCallToken({ token: res.data.token, url: res.data.url })
     } catch {
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')
@@ -110,24 +124,11 @@ export function ClientViewScreen() {
   const allUpcoming = Object.values(groups).flat()
   const nextSession = allUpcoming[0]
 
-  // данные текущего клиента (из Telegram)
-  const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user
-  const clientName = tgUser?.first_name || user?.first_name || 'Клиент'
-  const clientUsername = tgUser?.username || user?.username
-
   return (
     <div className={styles.screen}>
-
-      {/* Шапка — кто я */}
       <div className={styles.header}>
         <div className={styles.clientInfo}>
-          <Avatar
-            url={clientInfo?.client_avatar}
-            username={clientUsername}
-            name={clientName}
-            size={40}
-            radius={13}
-          />
+          <Avatar url={clientInfo?.client_avatar} tgId={myTgId} name={clientName} size={40} radius={13} />
           <div>
             <p className={styles.clientName}>{clientName}</p>
             {clientUsername && <p className={styles.clientUsername}>@{clientUsername}</p>}
@@ -136,16 +137,9 @@ export function ClientViewScreen() {
         <button className={styles.roleBtn} onClick={() => setRole(null)}>Выйти</button>
       </div>
 
-      {/* Специалист */}
       {clientInfo && (
         <div className={styles.specialistBanner}>
-          <Avatar
-            url={clientInfo.specialist_avatar}
-            username={null}
-            name={clientInfo.specialist_name}
-            size={48}
-            radius={15}
-          />
+          <Avatar url={clientInfo.specialist_avatar} tgId={null} name={clientInfo.specialist_name} size={48} radius={15} />
           <div className={styles.specialistInfo}>
             <p className={styles.specialistLabel}>Ваш специалист</p>
             <p className={styles.specialistName}>{clientInfo.specialist_name}</p>
@@ -165,7 +159,6 @@ export function ClientViewScreen() {
         </div>
       )}
 
-      {/* Ближайшее занятие */}
       {nextSession && (
         <div className={styles.nextSession}>
           <div>
@@ -180,7 +173,6 @@ export function ClientViewScreen() {
         </div>
       )}
 
-      {/* Кнопки действий */}
       {clientInfo && (clientInfo.meeting_url || clientInfo.livekit_room) && (
         <div className={styles.actions}>
           {clientInfo.meeting_url && (
@@ -196,7 +188,6 @@ export function ClientViewScreen() {
         </div>
       )}
 
-      {/* Табы */}
       {clientInfo && (
         <div className={styles.tabs}>
           {TABS.map(t => (

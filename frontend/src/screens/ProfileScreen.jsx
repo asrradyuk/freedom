@@ -74,6 +74,7 @@ export function ProfileScreen() {
 
   const expiresAt = user?.subscription_expires_at
     ? new Date(user.subscription_expires_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+    : null
 
   const createdAt = user?.created_at
     ? new Date(user.created_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -88,7 +89,6 @@ export function ProfileScreen() {
       </div>
 
       <div className="screen-content">
-        {/* Аватар и имя */}
         <div className={styles.hero}>
           <div className={styles.avatarWrap} onClick={() => !uploadingAvatar && fileRef.current?.click()}>
             {showAvatar
@@ -127,7 +127,6 @@ export function ProfileScreen() {
           )}
         </div>
 
-        {/* Подписка */}
         <Card className={styles.subCard} variant={subscriptionActive ? 'flat' : 'default'}>
           <div className={styles.subRow}>
             <div>
@@ -144,7 +143,6 @@ export function ProfileScreen() {
           </div>
         </Card>
 
-        {/* Статистика */}
         <div className={styles.statsRow}>
           <div className={styles.statCard}>
             <p className={styles.statNum}>{totalClients}</p>
@@ -156,7 +154,6 @@ export function ProfileScreen() {
           </div>
         </div>
 
-        {/* Ссылка-приглашение */}
         <Card variant="flat" className={styles.inviteCard}>
           <p className={styles.inviteTitle}>Ссылка для клиентов</p>
           <p className={styles.inviteText}>Отправь клиенту — он сразу попадёт в приложение</p>
@@ -165,7 +162,6 @@ export function ProfileScreen() {
           </button>
         </Card>
 
-        {/* Инфо */}
         <Card variant="flat" className={styles.infoCard}>
           <div className={styles.infoRow}>
             <span className={styles.infoLabel}>Telegram ID</span>
