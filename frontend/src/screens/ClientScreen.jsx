@@ -11,10 +11,12 @@ const BASE_URL = 'https://freedom-b3m3.onrender.com'
 
 function ClientAvatar({ client, size = 80 }) {
   const [error, setError] = useState(false)
-  const src = client.client_avatar_url
-    ? client.client_avatar_url.startsWith('http')
-      ? client.client_avatar_url
-      : `${BASE_URL}${client.client_avatar_url}`
+  const src = client.avatar_url
+    ? client.avatar_url.startsWith('http')
+      ? client.avatar_url
+      : `${BASE_URL}${client.avatar_url}`
+    : client.username
+    ? `https://t.me/i/userpic/320/${client.username}.jpg`
     : null
   const radius = Math.round(size * 0.3)
   const initials = client.name.charAt(0).toUpperCase()
@@ -120,14 +122,14 @@ export function ClientScreen() {
       <div className={styles.hero}>
         <ClientAvatar client={client} size={80} />
         <h1 className={styles.name}>{client.name}</h1>
-        {client.client_username && (
+        {client.username && (
           <a
-            href={`https://t.me/${client.client_username}`}
+            href={`https://t.me/${client.username}`}
             target="_blank"
             rel="noreferrer"
             className={styles.tgLink}
           >
-            @{client.client_username}
+            @{client.username}
           </a>
         )}
         {client.note && <p className={styles.note}>{client.note}</p>}
