@@ -5,51 +5,30 @@
   flex-direction: column;
 }
 
+/* ── Шапка — кто я ── */
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 20px 12px;
+  padding: 16px 20px 12px;
 }
 
-.headerLeft {
+.clientInfo {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
-.specialistAvatar {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  background: var(--blue-light);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
+.clientName {
+  font-size: 15px;
   font-weight: 600;
-  color: var(--blue-dark);
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.specialistAvatarImg {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.title {
-  font-family: var(--font-display);
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: -0.4px;
   color: var(--gray-dark);
   margin: 0;
+  font-family: var(--font-display);
 }
 
-.subtitle {
-  font-size: 13px;
+.clientUsername {
+  font-size: 12px;
   color: var(--gray-mid);
   margin: 0;
 }
@@ -58,23 +37,75 @@
   background: none;
   font-size: 13px;
   color: var(--gray-mid);
-  padding: 6px 0;
   border: none;
   cursor: pointer;
+  padding: 6px 0;
 }
 
-/* Ближайшее занятие */
+/* ── Баннер специалиста ── */
+.specialistBanner {
+  margin: 0 20px 12px;
+  background: var(--white, #fff);
+  border-radius: 16px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+
+.specialistInfo { flex: 1; }
+
+.specialistLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gray-mid);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 2px;
+}
+
+.specialistName {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--gray-dark);
+  margin: 0;
+  font-family: var(--font-display);
+}
+
+.specialistActions {
+  display: flex;
+  gap: 8px;
+}
+
+.actionBtnSm {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--blue-light);
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s;
+}
+.actionBtnSm:active { opacity: 0.7; }
+.actionBtnSm:disabled { opacity: 0.4; cursor: default; }
+
+/* ── Ближайшее занятие ── */
 .nextSession {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin: 0 20px 12px;
   background: var(--blue-light);
-  border-radius: var(--radius-md);
+  border-radius: 14px;
   padding: 12px 16px;
 }
 
-.nextSessionLabel {
+.nextLabel {
   font-size: 11px;
   font-weight: 600;
   color: var(--blue-dark);
@@ -83,7 +114,7 @@
   margin: 0 0 3px;
 }
 
-.nextSessionTime {
+.nextTime {
   font-size: 15px;
   font-weight: 600;
   color: var(--blue-dark);
@@ -91,16 +122,14 @@
   font-family: var(--font-display);
 }
 
-.nextSessionRight { flex-shrink: 0; }
-
-/* Кнопки действий */
+/* ── Кнопки действий ── */
 .actions {
   display: flex;
   gap: 10px;
   padding: 0 20px 12px;
 }
 
-/* Табы */
+/* ── Табы ── */
 .tabs {
   display: flex;
   gap: 8px;
@@ -110,7 +139,7 @@
 .tab {
   flex: 1;
   padding: 10px;
-  border-radius: var(--radius-md);
+  border-radius: 12px;
   background: var(--gray-card);
   color: var(--gray-muted);
   font-size: 14px;
@@ -126,10 +155,8 @@
   font-weight: 600;
 }
 
-.content {
-  flex: 1;
-  padding: 0 20px 32px;
-}
+/* ── Контент ── */
+.content { flex: 1; padding: 0 20px 32px; }
 
 .group { margin-bottom: 24px; }
 
@@ -162,6 +189,7 @@
   font-size: 15px;
   font-weight: 600;
   color: var(--blue-dark);
+  margin: 0;
 }
 
 .nextBadge {
@@ -174,11 +202,11 @@
 
 .info { flex: 1; }
 
-.specialistName {
-  font-size: 15px;
-  font-weight: 600;
+.sessionSpecialist {
+  font-size: 14px;
+  font-weight: 500;
   color: var(--gray-dark);
-  margin-bottom: 4px;
+  margin: 0 0 4px;
 }
 
 .badge {
@@ -191,7 +219,6 @@
 .paid { background: #E6F9F0; color: #1A7A4A; }
 .unpaid { background: #FFF3E0; color: #B45309; }
 
-/* Материалы */
 .materialCard {
   display: flex !important;
   align-items: center;
@@ -207,15 +234,15 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  margin: 0;
 }
-.fileMeta { font-size: 12px; color: var(--gray-mid); margin-top: 2px; }
+.fileMeta { font-size: 12px; color: var(--gray-mid); margin: 2px 0 0; }
 .downloadBtn {
   color: var(--blue-text);
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 34px; height: 34px;
   border-radius: 10px;
   background: var(--blue-light);
   font-size: 16px;

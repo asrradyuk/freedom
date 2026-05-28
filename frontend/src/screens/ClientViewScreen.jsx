@@ -53,17 +53,32 @@ function formatSize(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(1)} МБ`
 }
 
+function Avatar({ url, username, name, size = 44, radius = 14 }) {
+  const [err, setErr] = useState(false)
+  const src = url
+    ? url.startsWith('http') ? url : `${BASE_URL}${url}`
+    : username ? `https://t.me/i/userpic/320/${username}.jpg` : null
+  const initials = (name || '?').charAt(0).toUpperCase()
+  return (
+    <div style={{ width: size, height: size, borderRadius: radius, background: 'var(--blue-light)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.4, fontWeight: 700, color: 'var(--blue-dark)' }}>
+      {src && !err
+        ? <img src={src} alt={name} onError={() => setErr(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        : initials
+      }
+    </div>
+  )
+}
+
 const TABS = ['sessions', 'materials']
 const TAB_LABELS = { sessions: '📅 Занятия', materials: '📁 Материалы' }
 
 export function ClientViewScreen() {
-  const { setRole } = useAppStore()
+  const { user, setRole } = useAppStore()
   const [clientInfo, setClientInfo] = useState(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('sessions')
   const [callToken, setCallToken] = useState(null)
   const [joiningCall, setJoiningCall] = useState(false)
-  const [specialistAvatarError, setSpecialistAvatarError] = useState(false)
 
   useEffect(() => {
     const tgId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id
@@ -92,60 +107,81 @@ export function ClientViewScreen() {
 
   const groups = clientInfo ? groupSessions(clientInfo.sessions || []) : {}
   const materials = clientInfo?.materials || []
-
-  // Ближайшее занятие
   const allUpcoming = Object.values(groups).flat()
   const nextSession = allUpcoming[0]
 
-  // Аватарка специалиста
-  const specialistAvatarSrc = clientInfo?.specialist_avatar
-    ? clientInfo.specialist_avatar.startsWith('http')
-      ? clientInfo.specialist_avatar
-      : `${BASE_URL}${clientInfo.specialist_avatar}`
-    : null
+  // данные текущего клиента (из Telegram)
+  const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user
+  const clientName = tgUser?.first_name || user?.first_name || 'Клиент'
+  const clientUsername = tgUser?.username || user?.username
 
   return (
     <div className={styles.screen}>
+
+      {/* Шапка — кто я */}
       <div className={styles.header}>
-        <div className={styles.headerLeft}>
-          {/* Аватарка специалиста */}
-          <div className={styles.specialistAvatar}>
-            {specialistAvatarSrc && !specialistAvatarError ? (
-              <img src={specialistAvatarSrc} alt="specialist" className={styles.specialistAvatarImg}
-                onError={() => setSpecialistAvatarError(true)} />
-            ) : (
-              <span>{(clientInfo?.specialist_name || '?').charAt(0).toUpperCase()}</span>
-            )}
-          </div>
+        <div className={styles.clientInfo}>
+          <Avatar
+            url={clientInfo?.client_avatar}
+            username={clientUsername}
+            name={clientName}
+            size={40}
+            radius={13}
+          />
           <div>
-            <h1 className={styles.title}>Мои занятия</h1>
-            {clientInfo?.specialist_name && (
-              <p className={styles.subtitle}>{clientInfo.specialist_name}</p>
-            )}
+            <p className={styles.clientName}>{clientName}</p>
+            {clientUsername && <p className={styles.clientUsername}>@{clientUsername}</p>}
           </div>
         </div>
         <button className={styles.roleBtn} onClick={() => setRole(null)}>Выйти</button>
       </div>
 
-      {/* Ближайшее занятие — баннер */}
-      {nextSession && (
-        <div className={styles.nextSession}>
-          <div className={styles.nextSessionLeft}>
-            <p className={styles.nextSessionLabel}>Следующее занятие</p>
-            <p className={styles.nextSessionTime}>
-              {formatDateTime(nextSession.scheduled_at).dayLabel} · {formatDateTime(nextSession.scheduled_at).time}
-            </p>
+      {/* Специалист */}
+      {clientInfo && (
+        <div className={styles.specialistBanner}>
+          <Avatar
+            url={clientInfo.specialist_avatar}
+            username={null}
+            name={clientInfo.specialist_name}
+            size={48}
+            radius={15}
+          />
+          <div className={styles.specialistInfo}>
+            <p className={styles.specialistLabel}>Ваш специалист</p>
+            <p className={styles.specialistName}>{clientInfo.specialist_name}</p>
           </div>
-          <div className={styles.nextSessionRight}>
-            <span className={`${styles.badge} ${nextSession.payment_status === 'paid' ? styles.paid : styles.unpaid}`}>
-              {nextSession.payment_status === 'paid' ? 'Оплачено' : 'Не оплачено'}
-            </span>
+          <div className={styles.specialistActions}>
+            {clientInfo.meeting_url && (
+              <a href={clientInfo.meeting_url} target="_blank" rel="noreferrer">
+                <button className={styles.actionBtnSm}>🔗</button>
+              </a>
+            )}
+            {clientInfo.livekit_room && (
+              <button className={styles.actionBtnSm} onClick={handleJoinCall} disabled={joiningCall}>
+                {joiningCall ? '...' : '📹'}
+              </button>
+            )}
           </div>
         </div>
       )}
 
+      {/* Ближайшее занятие */}
+      {nextSession && (
+        <div className={styles.nextSession}>
+          <div>
+            <p className={styles.nextLabel}>Следующее занятие</p>
+            <p className={styles.nextTime}>
+              {formatDateTime(nextSession.scheduled_at).dayLabel} · {formatDateTime(nextSession.scheduled_at).time}
+            </p>
+          </div>
+          <span className={`${styles.badge} ${nextSession.payment_status === 'paid' ? styles.paid : styles.unpaid}`}>
+            {nextSession.payment_status === 'paid' ? 'Оплачено' : 'Не оплачено'}
+          </span>
+        </div>
+      )}
+
       {/* Кнопки действий */}
-      {clientInfo && (
+      {clientInfo && (clientInfo.meeting_url || clientInfo.livekit_room) && (
         <div className={styles.actions}>
           {clientInfo.meeting_url && (
             <a href={clientInfo.meeting_url} target="_blank" rel="noreferrer" style={{ flex: 1 }}>
@@ -201,7 +237,7 @@ export function ClientViewScreen() {
                           {isNext && <span className={styles.nextBadge}>Ближайшее</span>}
                         </div>
                         <div className={styles.info}>
-                          <p className={styles.specialistName}>{clientInfo.specialist_name}</p>
+                          <p className={styles.sessionSpecialist}>с {clientInfo.specialist_name}</p>
                           <span className={`${styles.badge} ${s.payment_status === 'paid' ? styles.paid : styles.unpaid}`}>
                             {s.payment_status === 'paid' ? 'Оплачено' : 'Не оплачено'}
                           </span>
@@ -229,13 +265,8 @@ export function ClientViewScreen() {
                     <p className={styles.fileName}>{m.original_name}</p>
                     <p className={styles.fileMeta}>{formatSize(m.file_size)}</p>
                   </div>
-                  <a
-                    href={`${API_URL}/clients/${clientInfo.client_id}/materials/${m.id}/download`}
-                    className={styles.downloadBtn}
-                    download={m.original_name}
-                  >
-                    ↓
-                  </a>
+                  <a href={`${API_URL}/clients/${clientInfo.client_id}/materials/${m.id}/download`}
+                    className={styles.downloadBtn} download={m.original_name}>↓</a>
                 </Card>
               ))}
             </div>
