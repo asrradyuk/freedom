@@ -139,7 +139,7 @@ export function ClientViewScreen() {
 
       {clientInfo && (
         <div className={styles.specialistBanner}>
-          <Avatar url={clientInfo.specialist_avatar} tgId={null} name={clientInfo.specialist_name} size={48} radius={15} />
+          <Avatar url={clientInfo.specialist_avatar} tgId={clientInfo.specialist_tg_id} name={clientInfo.specialist_name} size={48} radius={15} />
           <div className={styles.specialistInfo}>
             <p className={styles.specialistLabel}>Ваш специалист</p>
             <p className={styles.specialistName}>{clientInfo.specialist_name}</p>
