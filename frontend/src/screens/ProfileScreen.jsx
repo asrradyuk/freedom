@@ -26,7 +26,9 @@ export function ProfileScreen() {
 
   const avatarSrc = user?.avatar_url
     ? user.avatar_url.startsWith('http') ? user.avatar_url : `${BASE_URL}${user.avatar_url}`
-    : null
+    : user?.username
+    ? `https://t.me/i/userpic/320/${user.username}.jpg`
+    : user?.username ? `https://t.me/i/userpic/320/${user.username}.jpg` : null
 
   const showAvatar = avatarSrc && !avatarError
   const initials = (user?.display_name || user?.first_name || '?').charAt(0).toUpperCase()
@@ -68,15 +70,15 @@ export function ProfileScreen() {
     window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success')
   }
 
-  const tgLink = user?.username ? `https://t.me/${user.username}` : null
+  const tgLink = user?.username ? `https://t.me/${user.username}` : user?.username ? `https://t.me/i/userpic/320/${user.username}.jpg` : null
 
   const expiresAt = user?.subscription_expires_at
     ? new Date(user.subscription_expires_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
-    : null
+    : user?.username ? `https://t.me/i/userpic/320/${user.username}.jpg` : null
 
   const createdAt = user?.created_at
     ? new Date(user.created_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
-    : null
+    : user?.username ? `https://t.me/i/userpic/320/${user.username}.jpg` : null
 
   const totalClients = clients?.length || 0
 
