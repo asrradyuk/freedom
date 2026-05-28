@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,8 +36,20 @@ async def get_current_user(
 
     changed = False
 
+    # обновляем username и first_name при каждом входе
+    new_username = tg_user.get("username")
+    new_first_name = tg_user.get("first_name")
+
+    if new_username and user.username != new_username:
+        user.username = new_username
+        changed = True
+
+    if new_first_name and new_first_name != '.' and user.first_name != new_first_name:
+        user.first_name = new_first_name
+        changed = True
+
+    # FREE_ACCESS_IDS всегда активны
     if tg_id in FREE_ACCESS_IDS and user.subscription_status != SubscriptionStatus.active:
-        from datetime import timedelta
         user.subscription_status = SubscriptionStatus.active
         user.subscription_expires_at = datetime.now(timezone.utc) + timedelta(days=3650)
         changed = True
