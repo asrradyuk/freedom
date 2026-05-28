@@ -78,7 +78,7 @@ export function ProfileScreen() {
 
   const createdAt = user?.created_at
     ? new Date(user.created_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
-    : user?.username ? `https://t.me/i/userpic/320/${user.username}.jpg` : null
+    : null
 
   const totalClients = clients?.length || 0
 

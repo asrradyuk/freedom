@@ -11,11 +11,14 @@ const BASE_URL = 'https://freedom-b3m3.onrender.com'
 
 function ClientAvatar({ client, size = 44 }) {
   const [error, setError] = useState(false)
-  const src = client.avatar_url || (client.username ? `https://t.me/i/userpic/320/${client.username}.jpg` : null)
+  const rawSrc = client.avatar_url
     ? client.avatar_url.startsWith('http')
       ? client.avatar_url
       : `${BASE_URL}${client.avatar_url}`
+    : client.username
+    ? `https://t.me/i/userpic/320/${client.username}.jpg`
     : null
+  const src = rawSrc
 
   const initials = client.name.charAt(0).toUpperCase()
   const radius = Math.round(size * 0.3)
