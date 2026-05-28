@@ -15,8 +15,8 @@ function ClientAvatar({ client, size = 80 }) {
     ? client.avatar_url.startsWith('http')
       ? client.avatar_url
       : `${BASE_URL}${client.avatar_url}`
-    : client.username
-    ? `https://t.me/i/userpic/320/${client.username}.jpg`
+    : client.client_tg_id
+    ? `${BASE_URL}/api/v1/profile/tg-avatar/${client.client_tg_id}`
     : null
   const radius = Math.round(size * 0.3)
   const initials = client.name.charAt(0).toUpperCase()
