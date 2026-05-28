@@ -68,3 +68,35 @@ async def get_avatar(filename: str):
     if not path.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     return FileResponse(path)
+
+@router.get("/tg-avatar/{tg_id}")
+async def get_tg_avatar(tg_id: int):
+    import httpx
+    from fastapi.responses import Response
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            photos_res = await client.get(
+                f"https://api.telegram.org/bot{settings.BOT_TOKEN}/getUserProfilePhotos",
+                params={"user_id": tg_id, "limit": 1}
+            )
+            photos_data = photos_res.json()
+            if not photos_data.get("ok") or not photos_data["result"]["photos"]:
+                raise HTTPException(status_code=404, detail="No avatar")
+            file_id = photos_data["result"]["photos"][0][-1]["file_id"]
+            file_res = await client.get(
+                f"https://api.telegram.org/bot{settings.BOT_TOKEN}/getFile",
+                params={"file_id": file_id}
+            )
+            file_path = file_res.json()["result"]["file_path"]
+            img_res = await client.get(
+                f"https://api.telegram.org/file/bot{settings.BOT_TOKEN}/{file_path}"
+            )
+            return Response(
+                content=img_res.content,
+                media_type="image/jpeg",
+                headers={"Cache-Control": "public, max-age=3600"}
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=404, detail="Avatar not found")
