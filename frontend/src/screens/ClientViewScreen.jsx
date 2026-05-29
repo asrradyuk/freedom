@@ -3,11 +3,10 @@ import { ClientCallScreen } from './CallScreen'
 import { useAppStore } from '../store'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
-import api from '../api'
+import { livekitApi, BASE_API_URL } from '../api'
 import styles from './ClientViewScreen.module.css'
 
-const BASE_URL = 'https://freedom-b3m3.onrender.com'
-const API_URL = 'https://freedom-b3m3.onrender.com/api/v1'
+const API_ORIGIN = BASE_API_URL.replace('/api/v1', '')
 
 function formatDateTime(dateStr) {
   const d = new Date(dateStr)
@@ -57,9 +56,9 @@ function Avatar({ url, tgId, name, size = 44, radius = 14 }) {
   const [err, setErr] = useState(false)
   const src = !err
     ? (url
-        ? url.startsWith('http') ? url : `${BASE_URL}${url}`
+        ? url.startsWith('http') ? url : `${API_ORIGIN}${url}`
         : tgId
-        ? `${BASE_URL}/api/v1/profile/tg-avatar/${tgId}`
+        ? `${BASE_API_URL}/profile/tg-avatar/${tgId}`
         : null)
     : null
   const initials = (name || '?').charAt(0).toUpperCase()
@@ -98,21 +97,24 @@ export function ClientViewScreen() {
 
   useEffect(() => {
     if (!myTgId) { setLoading(false); return }
-    api.get(`/clients/by-tg/${myTgId}`)
-      .then(r => setClientInfo(r.data))
+    fetch(`${BASE_API_URL}/clients/by-tg/${myTgId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setClientInfo(data) })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
 
   const handleJoinCall = async () => {
-    if (!clientInfo?.livekit_room) return
+    if (!clientInfo?.livekit_room || !myTgId) return
     setJoiningCall(true)
     try {
-      const res = await api.post(`/livekit/client-token/${clientInfo.client_id}?tg_id=${myTgId}`)
+      const res = await livekitApi.getClientToken(clientInfo.client_id, myTgId)
       setCallToken({ token: res.data.token, url: res.data.url })
     } catch {
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')
-    } finally { setJoiningCall(false) }
+    } finally {
+      setJoiningCall(false)
+    }
   }
 
   if (callToken) {
@@ -256,8 +258,13 @@ export function ClientViewScreen() {
                     <p className={styles.fileName}>{m.original_name}</p>
                     <p className={styles.fileMeta}>{formatSize(m.file_size)}</p>
                   </div>
-                  <a href={`${API_URL}/clients/${clientInfo.client_id}/materials/${m.id}/download`}
-                    className={styles.downloadBtn} download={m.original_name}>↓</a>
+                  <a
+                    href={`${BASE_API_URL}/clients/${clientInfo.client_id}/materials/${m.id}/client-download?tg_id=${myTgId}`}
+                    className={styles.downloadBtn}
+                    download={m.original_name}
+                  >
+                    ↓
+                  </a>
                 </Card>
               ))}
             </div>

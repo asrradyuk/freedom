@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useAppStore } from '../store'
-import { clientsApi, subscriptionApi } from '../api'
-import api from '../api'
+import { subscriptionApi, clientsApi } from '../api'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import styles from './SubscriptionScreen.module.css'
@@ -15,41 +14,45 @@ const FEATURES = [
   { icon: '💳', text: 'Учёт оплат' },
 ]
 
-const FALLBACK_URL = 'https://yookassa.ru/my/i/agDO8i12AyV0/l'
-
 export function SubscriptionScreen() {
   const { user, subscriptionActive, setUser, setClients, setActiveScreen } = useAppStore()
   const [loadingPay, setLoadingPay] = useState(false)
-  const [loadingConfirm, setLoadingConfirm] = useState(false)
+  const [loadingCheck, setLoadingCheck] = useState(false)
+  const [checkMsg, setCheckMsg] = useState(null)
 
   const handlePay = async () => {
     setLoadingPay(true)
     try {
-      const res = await api.get('/subscription/payment-url')
-      const url = res.data?.url || FALLBACK_URL
-      window.open(url, '_blank')
+      const res = await subscriptionApi.paymentUrl()
+      window.open(res.data.url, '_blank')
     } catch {
-      window.open(FALLBACK_URL, '_blank')
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')
     } finally {
       setLoadingPay(false)
     }
   }
 
-  const handleConfirm = async () => {
-    setLoadingConfirm(true)
+  const handleCheck = async () => {
+    setLoadingCheck(true)
+    setCheckMsg(null)
     try {
       const [subRes, clientsRes] = await Promise.all([
-        subscriptionApi.confirm(),
+        subscriptionApi.get(),
         clientsApi.list(),
       ])
       setUser(subRes.data)
       setClients(clientsRes.data)
-      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success')
-      setActiveScreen('home')
+      if (subRes.data.subscription_status === 'active') {
+        window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success')
+        setActiveScreen('home')
+      } else {
+        setCheckMsg('Оплата ещё не подтверждена. Попробуйте через минуту.')
+        window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')
+      }
     } catch {
-      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')
+      setCheckMsg('Ошибка проверки. Попробуйте ещё раз.')
     } finally {
-      setLoadingConfirm(false)
+      setLoadingCheck(false)
     }
   }
 
@@ -101,11 +104,13 @@ export function SubscriptionScreen() {
 
             <button
               className={styles.confirmBtn}
-              onClick={handleConfirm}
-              disabled={loadingConfirm}
+              onClick={handleCheck}
+              disabled={loadingCheck}
             >
-              {loadingConfirm ? 'Проверяем...' : 'Я уже оплатил — подтвердить'}
+              {loadingCheck ? 'Проверяем...' : 'Я уже оплатил — проверить статус'}
             </button>
+
+            {checkMsg && <p className={styles.checkMsg}>{checkMsg}</p>}
           </>
         )}
       </div>

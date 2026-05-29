@@ -35,8 +35,8 @@ async def get_current_user(
         return user
 
     changed = False
+    now = datetime.now(timezone.utc)
 
-    # обновляем username и first_name при каждом входе
     new_username = tg_user.get("username")
     new_first_name = tg_user.get("first_name")
 
@@ -44,20 +44,19 @@ async def get_current_user(
         user.username = new_username
         changed = True
 
-    if new_first_name and new_first_name != '.' and user.first_name != new_first_name:
+    if new_first_name and new_first_name != "." and user.first_name != new_first_name:
         user.first_name = new_first_name
         changed = True
 
-    # FREE_ACCESS_IDS всегда активны
-    if tg_id in FREE_ACCESS_IDS and user.subscription_status != SubscriptionStatus.active:
-        user.subscription_status = SubscriptionStatus.active
-        user.subscription_expires_at = datetime.now(timezone.utc) + timedelta(days=3650)
-        changed = True
+    if tg_id in FREE_ACCESS_IDS:
+        if user.subscription_status != SubscriptionStatus.active:
+            user.subscription_status = SubscriptionStatus.active
+            user.subscription_expires_at = now + timedelta(days=3650)
+            changed = True
     elif (
         user.subscription_status == SubscriptionStatus.active
         and user.subscription_expires_at is not None
-        and user.subscription_expires_at < datetime.now(timezone.utc)
-        and tg_id not in FREE_ACCESS_IDS
+        and user.subscription_expires_at < now
     ):
         user.subscription_status = SubscriptionStatus.inactive
         changed = True

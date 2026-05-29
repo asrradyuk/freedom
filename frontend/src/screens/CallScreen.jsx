@@ -15,6 +15,14 @@ import styles from './CallScreen.module.css'
 const AUDIO_NORMAL = { noiseSuppression: true, echoCancellation: true, autoGainControl: true }
 const AUDIO_ORIGINAL = { noiseSuppression: false, echoCancellation: false, autoGainControl: false, sampleRate: 48000 }
 
+function stopAllTracks(localParticipant) {
+  try {
+    localParticipant.getTrackPublications().forEach(pub => {
+      pub.track?.mediaStreamTrack?.stop()
+    })
+  } catch {}
+}
+
 function TrackVideo({ track, muted = false, className }) {
   const ref = useRef(null)
   useEffect(() => {
@@ -141,7 +149,10 @@ function ChatPanel({ onClose }) {
 
 function CtrlBtn({ icon, label, active, danger, onClick }) {
   return (
-    <button className={`${styles.ctrlBtn} ${active ? styles.ctrlActive : ''} ${danger ? styles.ctrlDanger : ''}`} onClick={onClick}>
+    <button
+      className={`${styles.ctrlBtn} ${active ? styles.ctrlActive : ''} ${danger ? styles.ctrlDanger : ''}`}
+      onClick={onClick}
+    >
       <span className={styles.ctrlIcon}>{icon}</span>
       <span className={styles.ctrlLabel}>{label}</span>
     </button>
@@ -159,67 +170,74 @@ function Controls({ onHangUp, showChat, setShowChat, isClient }) {
 
   const toggleMic = async () => {
     const next = !mic
-    if (next) {
-      await localParticipant.setMicrophoneEnabled(true)
-    } else {
-      // физически останавливаем медиапоток
-      const pub = localParticipant.getTrackPublication(Track.Source.Microphone)
-      if (pub?.track?.mediaStreamTrack) {
-        pub.track.mediaStreamTrack.stop()
+    try {
+      if (!next) {
+        const pub = localParticipant.getTrackPublication(Track.Source.Microphone)
+        pub?.track?.mediaStreamTrack?.stop()
       }
-      await localParticipant.setMicrophoneEnabled(false)
-    }
-    setMic(next)
+      await localParticipant.setMicrophoneEnabled(next)
+      setMic(next)
+    } catch {}
   }
 
   const toggleCam = async () => {
     const next = !cam
-    if (!next) {
-      const pub = localParticipant.getTrackPublication(Track.Source.Camera)
-      if (pub?.track?.mediaStreamTrack) {
-        pub.track.mediaStreamTrack.stop()
+    try {
+      if (!next) {
+        const pub = localParticipant.getTrackPublication(Track.Source.Camera)
+        pub?.track?.mediaStreamTrack?.stop()
       }
-    }
-    await localParticipant.setCameraEnabled(next)
-    setCam(next)
+      await localParticipant.setCameraEnabled(next)
+      setCam(next)
+    } catch {}
   }
 
   const toggleScreen = async () => {
-    try { await localParticipant.setScreenShareEnabled(!screen); setScreen(v => !v) }
-    catch { setScreen(false) }
+    try {
+      await localParticipant.setScreenShareEnabled(!screen)
+      setScreen(v => !v)
+    } catch {
+      setScreen(false)
+    }
   }
 
   const toggleOriginal = async () => {
     setToggling(true)
     try {
       const next = !originalSound
-      // останавливаем текущий трек
       const pub = localParticipant.getTrackPublication(Track.Source.Microphone)
-      if (pub?.track?.mediaStreamTrack) pub.track.mediaStreamTrack.stop()
+      pub?.track?.mediaStreamTrack?.stop()
       await localParticipant.setMicrophoneEnabled(false)
-      // публикуем новый трек с нужными параметрами
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: next ? AUDIO_ORIGINAL : AUDIO_NORMAL })
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: next ? AUDIO_ORIGINAL : AUDIO_NORMAL,
+      })
       const track = stream.getAudioTracks()[0]
       await localParticipant.publishTrack(track, { source: 'microphone' })
       setOriginalSound(next)
       setMic(true)
-    } catch {} finally { setToggling(false) }
+    } catch {} finally {
+      setToggling(false)
+    }
   }
 
   const hangUp = async () => {
-    // останавливаем все треки перед отключением
-    localParticipant.getTrackPublications().forEach(pub => {
-      pub.track?.mediaStreamTrack?.stop()
-    })
-    await room.disconnect()
-    onHangUp()
+    stopAllTracks(localParticipant)
+    try {
+      await room.disconnect()
+    } finally {
+      onHangUp()
+    }
   }
 
   return (
     <div className={styles.controls}>
       <div className={styles.soundRow}>
         <span className={styles.soundLabel}>Оригинальный звук</span>
-        <button className={`${styles.toggle} ${originalSound ? styles.toggleOn : ''}`} onClick={toggleOriginal} disabled={toggling}>
+        <button
+          className={`${styles.toggle} ${originalSound ? styles.toggleOn : ''}`}
+          onClick={toggleOriginal}
+          disabled={toggling}
+        >
           <span className={styles.toggleThumb} />
         </button>
       </div>
@@ -228,7 +246,9 @@ function Controls({ onHangUp, showChat, setShowChat, isClient }) {
         <CtrlBtn icon={cam ? '📹' : '🚫'} label={cam ? 'Камера' : 'Выкл'} active={!cam} onClick={toggleCam} />
         <CtrlBtn icon="📵" label="Завершить" danger onClick={hangUp} />
         <CtrlBtn icon="💬" label="Чат" active={showChat} onClick={() => setShowChat(v => !v)} />
-        {!isClient && <CtrlBtn icon="🖥" label={screen ? 'Стоп' : 'Экран'} active={screen} onClick={toggleScreen} />}
+        {!isClient && (
+          <CtrlBtn icon="🖥" label={screen ? 'Стоп' : 'Экран'} active={screen} onClick={toggleScreen} />
+        )}
       </div>
     </div>
   )
@@ -245,7 +265,7 @@ function InnerCall({ onHangUp, isClient }) {
   )
 }
 
-function LoadingScreen({ name, error, onCancel }) {
+function CallLoadingScreen({ name, error, onCancel }) {
   return (
     <div className={styles.screen}>
       <div className={styles.centerState}>
@@ -253,11 +273,18 @@ function LoadingScreen({ name, error, onCancel }) {
         {name && <p className={styles.clientName}>{name}</p>}
         {error
           ? <p className={styles.errorText}>{error}</p>
-          : <><p className={styles.statusText}>Подключение...</p><div className={styles.dots}><span /><span /><span /></div></>
+          : (
+            <>
+              <p className={styles.statusText}>Подключение...</p>
+              <div className={styles.dots}><span /><span /><span /></div>
+            </>
+          )
         }
       </div>
       <div className={styles.bottomArea}>
-        <button className={styles.hangUpBtn} onClick={onCancel}>{error ? 'Назад' : 'Отмена'}</button>
+        <button className={styles.hangUpBtn} onClick={onCancel}>
+          {error ? 'Назад' : 'Отмена'}
+        </button>
       </div>
     </div>
   )
@@ -273,16 +300,30 @@ export function CallScreen() {
   useEffect(() => {
     livekitApi.getToken(currentClient.id)
       .then(r => { setToken(r.data.token); setServerUrl(r.data.url) })
-      .catch(() => setError('Не удалось подключиться'))
+      .catch(() => setError('Не удалось подключиться. Проверьте подписку и попробуйте снова.'))
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading || error || !token)
-    return <LoadingScreen name={currentClient.name} error={error} onCancel={() => setActiveScreen('client')} />
+  if (loading || error || !token) {
+    return (
+      <CallLoadingScreen
+        name={currentClient.name}
+        error={error}
+        onCancel={() => setActiveScreen('client')}
+      />
+    )
+  }
 
   return (
-    <LiveKitRoom token={token} serverUrl={serverUrl} connect video audio
-      onDisconnected={() => setActiveScreen('client')} style={{ height: '100dvh' }}>
+    <LiveKitRoom
+      token={token}
+      serverUrl={serverUrl}
+      connect
+      video
+      audio
+      onDisconnected={() => setActiveScreen('client')}
+      style={{ height: '100dvh' }}
+    >
       <InnerCall onHangUp={() => setActiveScreen('client')} isClient={false} />
     </LiveKitRoom>
   )
@@ -290,8 +331,15 @@ export function CallScreen() {
 
 export function ClientCallScreen({ token, url, onLeave }) {
   return (
-    <LiveKitRoom token={token} serverUrl={url} connect video audio
-      onDisconnected={onLeave} style={{ height: '100dvh' }}>
+    <LiveKitRoom
+      token={token}
+      serverUrl={url}
+      connect
+      video
+      audio
+      onDisconnected={onLeave}
+      style={{ height: '100dvh' }}
+    >
       <InnerCall onHangUp={onLeave} isClient={true} />
     </LiveKitRoom>
   )

@@ -3,7 +3,7 @@ import hmac
 import json
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,6 +16,11 @@ from app.schemas.schemas import UserOut
 router = APIRouter()
 
 
+def _verify_yookassa_signature(body: bytes, ip: str) -> bool:
+    trusted_prefixes = ("185.71.76.", "185.71.77.", "77.75.153.", "77.75.154.", "2a02:5180:")
+    return any(ip.startswith(p) for p in trusted_prefixes)
+
+
 @router.get("/", response_model=UserOut)
 async def get_subscription(user: User = Depends(get_current_user)):
     return user
@@ -23,8 +28,13 @@ async def get_subscription(user: User = Depends(get_current_user)):
 
 @router.get("/payment-url")
 async def get_payment_url(user: User = Depends(get_current_user)):
-    import httpx
     import uuid
+    import httpx
+
+    if not settings.YUKASSA_SHOP_ID or not settings.YUKASSA_SECRET_KEY:
+        if settings.PAYMENT_URL:
+            return {"url": settings.PAYMENT_URL}
+        raise HTTPException(status_code=503, detail="Payment not configured")
 
     idempotence_key = str(uuid.uuid4())
     payload = {
@@ -39,40 +49,43 @@ async def get_payment_url(user: User = Depends(get_current_user)):
     }
 
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=10) as client:
             r = await client.post(
                 "https://api.yookassa.ru/v3/payments",
                 json=payload,
                 auth=(settings.YUKASSA_SHOP_ID, settings.YUKASSA_SECRET_KEY),
                 headers={"Idempotence-Key": idempotence_key},
-                timeout=10,
             )
         data = r.json()
         url = data.get("confirmation", {}).get("confirmation_url")
         if not url:
-            raise HTTPException(status_code=500, detail="Failed to create payment")
+            raise HTTPException(status_code=502, detail="Failed to create payment")
         return {"url": url}
+    except HTTPException:
+        raise
     except Exception:
-        return {"url": settings.PAYMENT_URL}
+        if settings.PAYMENT_URL:
+            return {"url": settings.PAYMENT_URL}
+        raise HTTPException(status_code=502, detail="Payment service unavailable")
 
 
 @router.post("/webhook/yookassa")
 async def yookassa_webhook(request: Request, db: AsyncSession = Depends(get_db)):
-    body = await request.body()
+    client_ip = request.client.host if request.client else ""
+    if not _verify_yookassa_signature(await request.body(), client_ip):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
+    body = await request.body()
     try:
         data = json.loads(body)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON")
 
-    event = data.get("event")
-    if event != "payment.succeeded":
+    if data.get("event") != "payment.succeeded":
         return {"ok": True}
 
-    payment_obj = data.get("object", {})
-    metadata = payment_obj.get("metadata", {})
+    metadata = data.get("object", {}).get("metadata", {})
     tg_id_str = metadata.get("tg_id")
-
     if not tg_id_str:
         return {"ok": True}
 
@@ -89,18 +102,6 @@ async def yookassa_webhook(request: Request, db: AsyncSession = Depends(get_db))
         await db.commit()
 
     return {"ok": True}
-
-
-@router.post("/confirm", response_model=UserOut)
-async def confirm_payment(
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    user.subscription_status = SubscriptionStatus.active
-    user.subscription_expires_at = datetime.now(timezone.utc) + timedelta(days=30)
-    await db.commit()
-    await db.refresh(user)
-    return user
 
 
 @router.post("/admin/activate", response_model=UserOut)

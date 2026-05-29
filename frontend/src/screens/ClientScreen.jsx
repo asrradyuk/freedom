@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { clientsApi } from '../api'
+import { clientsApi, BASE_API_URL } from '../api'
 import { useAppStore } from '../store'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
@@ -7,16 +7,16 @@ import { BottomSheet } from '../components/ui/BottomSheet'
 import { Input, Textarea } from '../components/ui/Input'
 import styles from './ClientScreen.module.css'
 
-const BASE_URL = 'https://freedom-b3m3.onrender.com'
+const API_ORIGIN = BASE_API_URL.replace('/api/v1', '')
 
 function ClientAvatar({ client, size = 80 }) {
   const [error, setError] = useState(false)
   const src = client.avatar_url
     ? client.avatar_url.startsWith('http')
       ? client.avatar_url
-      : `${BASE_URL}${client.avatar_url}`
+      : `${API_ORIGIN}${client.avatar_url}`
     : client.client_tg_id
-    ? `${BASE_URL}/api/v1/profile/tg-avatar/${client.client_tg_id}`
+    ? `${BASE_API_URL}/profile/tg-avatar/${client.client_tg_id}`
     : null
   const radius = Math.round(size * 0.3)
   const initials = client.name.charAt(0).toUpperCase()
@@ -91,7 +91,9 @@ export function ClientScreen() {
       removeClient(client.id)
       setActiveScreen('clients')
       setCurrentClient(null)
-    } catch {}
+    } catch {
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')
+    }
   }
 
   const handleMeetingPress = () => {

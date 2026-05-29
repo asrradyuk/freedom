@@ -10,6 +10,14 @@
   color: var(--gray-dark);
 }
 
+.checkMsg {
+  font-size: 13px;
+  color: var(--gray-mid);
+  text-align: center;
+  margin-top: 8px;
+  padding: 0 8px;
+}
+
 .activeBlock {
   display: flex;
   flex-direction: column;
