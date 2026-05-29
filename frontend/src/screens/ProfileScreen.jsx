@@ -3,10 +3,10 @@ import { useAppStore } from '../store'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Card } from '../components/ui/Card'
+import { AvatarCircle } from '../components/ui/AvatarCircle'
 import api from '../api'
 import styles from './ProfileScreen.module.css'
 
-const BASE_URL = 'https://freedom-b3m3.onrender.com'
 const BOT_USERNAME = 'freedom_call_bot'
 
 export function ProfileScreen() {
@@ -15,35 +15,26 @@ export function ProfileScreen() {
   const [displayName, setDisplayName] = useState('')
   const [saving, setSaving] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
-  const [avatarError, setAvatarError] = useState(false)
   const [copied, setCopied] = useState(false)
   const fileRef = useRef()
 
   useEffect(() => {
     setDisplayName(user?.display_name || user?.first_name || '')
-    setAvatarError(false)
   }, [user])
-
-  const avatarSrc = user?.avatar_url
-    ? user.avatar_url.startsWith('http') ? user.avatar_url : `${BASE_URL}${user.avatar_url}`
-    : user?.tg_id
-    ? `${BASE_URL}/api/v1/profile/tg-avatar/${user.tg_id}`
-    : null
-
-  const showAvatar = avatarSrc && !avatarError
-  const initials = (user?.display_name || user?.first_name || '?').charAt(0).toUpperCase()
 
   const handleSave = async () => {
     if (!displayName.trim()) return
     setSaving(true)
     try {
-      const res = await api.patch('/profile', { display_name: displayName.trim() })
+      const res = await api.patch('/profile/', { display_name: displayName.trim() })
       setUser(res.data)
       setEditing(false)
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success')
     } catch {
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')
-    } finally { setSaving(false) }
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleAvatarUpload = async (e) => {
@@ -55,11 +46,13 @@ export function ProfileScreen() {
       form.append('file', file)
       const res = await api.post('/profile/avatar', form)
       setUser(res.data)
-      setAvatarError(false)
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success')
     } catch {
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')
-    } finally { setUploadingAvatar(false); e.target.value = '' }
+    } finally {
+      setUploadingAvatar(false)
+      e.target.value = ''
+    }
   }
 
   const handleCopyInvite = () => {
@@ -71,16 +64,15 @@ export function ProfileScreen() {
   }
 
   const tgLink = user?.username ? `https://t.me/${user.username}` : null
-
   const expiresAt = user?.subscription_expires_at
     ? new Date(user.subscription_expires_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
     : null
-
   const createdAt = user?.created_at
     ? new Date(user.created_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
     : null
-
-  const totalClients = clients?.length || 0
+  const memberSince = user?.created_at
+    ? new Date(user.created_at).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })
+    : '—'
 
   return (
     <div className="screen">
@@ -91,10 +83,13 @@ export function ProfileScreen() {
       <div className="screen-content">
         <div className={styles.hero}>
           <div className={styles.avatarWrap} onClick={() => !uploadingAvatar && fileRef.current?.click()}>
-            {showAvatar
-              ? <img src={avatarSrc} alt="avatar" className={styles.avatarImg} onError={() => setAvatarError(true)} />
-              : <div className={styles.avatarFallback}>{initials}</div>
-            }
+            <AvatarCircle
+              avatarUrl={user?.avatar_url}
+              tgId={user?.tg_id}
+              name={user?.display_name || user?.first_name}
+              size={88}
+              radius={28}
+            />
             <div className={styles.avatarOverlay}>
               <span>{uploadingAvatar ? '⏳' : '📷'}</span>
             </div>
@@ -103,12 +98,20 @@ export function ProfileScreen() {
 
           {editing ? (
             <div className={styles.nameEdit}>
-              <Input value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="Твоё имя" autoFocus />
+              <Input
+                value={displayName}
+                onChange={e => setDisplayName(e.target.value)}
+                placeholder="Твоё имя"
+                autoFocus
+              />
               <div style={{ display: 'flex', gap: 8 }}>
                 <Button variant="primary" size="sm" onClick={handleSave} disabled={saving || !displayName.trim()}>
                   {saving ? '...' : 'Сохранить'}
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => { setEditing(false); setDisplayName(user?.display_name || user?.first_name || '') }}>
+                <Button variant="ghost" size="sm" onClick={() => {
+                  setEditing(false)
+                  setDisplayName(user?.display_name || user?.first_name || '')
+                }}>
                   Отмена
                 </Button>
               </div>
@@ -145,11 +148,11 @@ export function ProfileScreen() {
 
         <div className={styles.statsRow}>
           <div className={styles.statCard}>
-            <p className={styles.statNum}>{totalClients}</p>
+            <p className={styles.statNum}>{clients?.length || 0}</p>
             <p className={styles.statLabel}>Клиентов</p>
           </div>
           <div className={styles.statCard}>
-            <p className={styles.statNum}>{createdAt ? new Date(user.created_at).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }) : '—'}</p>
+            <p className={styles.statNum}>{memberSince}</p>
             <p className={styles.statLabel}>С нами с</p>
           </div>
         </div>
@@ -170,7 +173,9 @@ export function ProfileScreen() {
           {user?.username && (
             <div className={styles.infoRow}>
               <span className={styles.infoLabel}>Username</span>
-              <a href={tgLink} target="_blank" rel="noreferrer" className={styles.infoLink}>@{user.username}</a>
+              <a href={tgLink} target="_blank" rel="noreferrer" className={styles.infoLink}>
+                @{user.username}
+              </a>
             </div>
           )}
           {createdAt && (
@@ -181,7 +186,13 @@ export function ProfileScreen() {
           )}
         </Card>
 
-        <button className={styles.switchRoleBtn} onClick={() => { setRole(null); window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('medium') }}>
+        <button
+          className={styles.switchRoleBtn}
+          onClick={() => {
+            setRole(null)
+            window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('medium')
+          }}
+        >
           Сменить роль
         </button>
       </div>

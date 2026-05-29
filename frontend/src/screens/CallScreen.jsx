@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   LiveKitRoom,
   useRoomContext,
@@ -7,7 +7,7 @@ import {
   useChat,
   useParticipants,
 } from '@livekit/components-react'
-import { Track } from 'livekit-client'
+import { Track, createLocalAudioTrack } from 'livekit-client'
 import { livekitApi } from '../api'
 import { useAppStore } from '../store'
 import styles from './CallScreen.module.css'
@@ -15,10 +15,28 @@ import styles from './CallScreen.module.css'
 const AUDIO_NORMAL = { noiseSuppression: true, echoCancellation: true, autoGainControl: true }
 const AUDIO_ORIGINAL = { noiseSuppression: false, echoCancellation: false, autoGainControl: false, sampleRate: 48000 }
 
-function stopAllTracks(localParticipant) {
+async function publishAudioTrack(localParticipant, constraints) {
+  const existing = localParticipant.getTrackPublication(Track.Source.Microphone)
+  if (existing?.track) {
+    await localParticipant.unpublishTrack(existing.track)
+    existing.track.mediaStreamTrack.stop()
+  }
+  const track = await createLocalAudioTrack(constraints)
+  await localParticipant.publishTrack(track, { source: Track.Source.Microphone })
+  return track
+}
+
+async function unpublishAudioTrack(localParticipant) {
+  const pub = localParticipant.getTrackPublication(Track.Source.Microphone)
+  if (!pub?.track) return
+  await localParticipant.unpublishTrack(pub.track)
+  pub.track.mediaStreamTrack.stop()
+}
+
+function stopAllLocalTracks(localParticipant) {
   try {
     localParticipant.getTrackPublications().forEach(pub => {
-      pub.track?.mediaStreamTrack?.stop()
+      try { pub.track?.mediaStreamTrack?.stop() } catch {}
     })
   } catch {}
 }
@@ -37,10 +55,12 @@ function TrackAudio({ track }) {
   const ref = useRef(null)
   useEffect(() => {
     if (!track || !ref.current) return
-    track.attach(ref.current)
-    return () => { try { track.detach(ref.current) } catch {} }
+    const el = ref.current
+    track.attach(el)
+    el.play().catch(() => {})
+    return () => { try { track.detach(el) } catch {} }
   }, [track])
-  return <audio ref={ref} autoPlay />
+  return <audio ref={ref} autoPlay playsInline />
 }
 
 function VideoArea() {
@@ -138,20 +158,25 @@ function ChatPanel({ onClose }) {
         <div ref={bottomRef} />
       </div>
       <div className={styles.chatInputRow}>
-        <input value={text} onChange={e => setText(e.target.value)}
+        <input
+          value={text}
+          onChange={e => setText(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleSend()}
-          placeholder="Написать..." className={styles.chatField} />
+          placeholder="Написать..."
+          className={styles.chatField}
+        />
         <button className={styles.chatSend} onClick={handleSend}>➤</button>
       </div>
     </div>
   )
 }
 
-function CtrlBtn({ icon, label, active, danger, onClick }) {
+function CtrlBtn({ icon, label, active, danger, disabled, onClick }) {
   return (
     <button
       className={`${styles.ctrlBtn} ${active ? styles.ctrlActive : ''} ${danger ? styles.ctrlDanger : ''}`}
       onClick={onClick}
+      disabled={disabled}
     >
       <span className={styles.ctrlIcon}>{icon}</span>
       <span className={styles.ctrlLabel}>{label}</span>
@@ -166,68 +191,79 @@ function Controls({ onHangUp, showChat, setShowChat, isClient }) {
   const [cam, setCam] = useState(true)
   const [screen, setScreen] = useState(false)
   const [originalSound, setOriginalSound] = useState(false)
-  const [toggling, setToggling] = useState(false)
+  const [micBusy, setMicBusy] = useState(false)
+  const [camBusy, setCamBusy] = useState(false)
+  const [screenBusy, setScreenBusy] = useState(false)
 
-  const toggleMic = async () => {
-    const next = !mic
+  const toggleMic = useCallback(async () => {
+    if (micBusy) return
+    setMicBusy(true)
     try {
-      if (!next) {
-        const pub = localParticipant.getTrackPublication(Track.Source.Microphone)
-        pub?.track?.mediaStreamTrack?.stop()
+      if (mic) {
+        await unpublishAudioTrack(localParticipant)
+        setMic(false)
+      } else {
+        await publishAudioTrack(localParticipant, originalSound ? AUDIO_ORIGINAL : AUDIO_NORMAL)
+        setMic(true)
       }
-      await localParticipant.setMicrophoneEnabled(next)
-      setMic(next)
-    } catch {}
-  }
+    } catch {
+    } finally {
+      setMicBusy(false)
+    }
+  }, [mic, micBusy, originalSound, localParticipant])
 
-  const toggleCam = async () => {
-    const next = !cam
+  const toggleCam = useCallback(async () => {
+    if (camBusy) return
+    setCamBusy(true)
     try {
-      if (!next) {
+      if (cam) {
         const pub = localParticipant.getTrackPublication(Track.Source.Camera)
-        pub?.track?.mediaStreamTrack?.stop()
+        if (pub?.track) {
+          await localParticipant.unpublishTrack(pub.track)
+          pub.track.mediaStreamTrack.stop()
+        }
+        setCam(false)
+      } else {
+        await localParticipant.setCameraEnabled(true)
+        setCam(true)
       }
-      await localParticipant.setCameraEnabled(next)
-      setCam(next)
-    } catch {}
-  }
+    } catch {
+    } finally {
+      setCamBusy(false)
+    }
+  }, [cam, camBusy, localParticipant])
 
-  const toggleScreen = async () => {
+  const toggleScreen = useCallback(async () => {
+    if (screenBusy) return
+    setScreenBusy(true)
     try {
       await localParticipant.setScreenShareEnabled(!screen)
       setScreen(v => !v)
     } catch {
       setScreen(false)
+    } finally {
+      setScreenBusy(false)
     }
-  }
+  }, [screen, screenBusy, localParticipant])
 
-  const toggleOriginal = async () => {
-    setToggling(true)
+  const toggleOriginal = useCallback(async () => {
+    if (micBusy) return
+    setMicBusy(true)
+    const next = !originalSound
     try {
-      const next = !originalSound
-      const pub = localParticipant.getTrackPublication(Track.Source.Microphone)
-      pub?.track?.mediaStreamTrack?.stop()
-      await localParticipant.setMicrophoneEnabled(false)
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: next ? AUDIO_ORIGINAL : AUDIO_NORMAL,
-      })
-      const track = stream.getAudioTracks()[0]
-      await localParticipant.publishTrack(track, { source: 'microphone' })
+      await publishAudioTrack(localParticipant, next ? AUDIO_ORIGINAL : AUDIO_NORMAL)
       setOriginalSound(next)
       setMic(true)
-    } catch {} finally {
-      setToggling(false)
-    }
-  }
-
-  const hangUp = async () => {
-    stopAllTracks(localParticipant)
-    try {
-      await room.disconnect()
+    } catch {
     } finally {
-      onHangUp()
+      setMicBusy(false)
     }
-  }
+  }, [originalSound, micBusy, localParticipant])
+
+  const hangUp = useCallback(async () => {
+    stopAllLocalTracks(localParticipant)
+    try { await room.disconnect() } finally { onHangUp() }
+  }, [localParticipant, room, onHangUp])
 
   return (
     <div className={styles.controls}>
@@ -236,18 +272,36 @@ function Controls({ onHangUp, showChat, setShowChat, isClient }) {
         <button
           className={`${styles.toggle} ${originalSound ? styles.toggleOn : ''}`}
           onClick={toggleOriginal}
-          disabled={toggling}
+          disabled={micBusy}
         >
           <span className={styles.toggleThumb} />
         </button>
       </div>
       <div className={styles.btnRow}>
-        <CtrlBtn icon={mic ? '🎤' : '🔇'} label={mic ? 'Звук' : 'Выкл'} active={!mic} onClick={toggleMic} />
-        <CtrlBtn icon={cam ? '📹' : '🚫'} label={cam ? 'Камера' : 'Выкл'} active={!cam} onClick={toggleCam} />
+        <CtrlBtn
+          icon={micBusy ? '⏳' : mic ? '🎤' : '🔇'}
+          label={mic ? 'Звук' : 'Выкл'}
+          active={!mic}
+          disabled={micBusy}
+          onClick={toggleMic}
+        />
+        <CtrlBtn
+          icon={camBusy ? '⏳' : cam ? '📹' : '🚫'}
+          label={cam ? 'Камера' : 'Выкл'}
+          active={!cam}
+          disabled={camBusy}
+          onClick={toggleCam}
+        />
         <CtrlBtn icon="📵" label="Завершить" danger onClick={hangUp} />
         <CtrlBtn icon="💬" label="Чат" active={showChat} onClick={() => setShowChat(v => !v)} />
         {!isClient && (
-          <CtrlBtn icon="🖥" label={screen ? 'Стоп' : 'Экран'} active={screen} onClick={toggleScreen} />
+          <CtrlBtn
+            icon={screenBusy ? '⏳' : '🖥'}
+            label={screen ? 'Стоп' : 'Экран'}
+            active={screen}
+            disabled={screenBusy}
+            onClick={toggleScreen}
+          />
         )}
       </div>
     </div>
@@ -292,19 +346,16 @@ function CallLoadingScreen({ name, error, onCancel }) {
 
 export function CallScreen() {
   const { currentClient, setActiveScreen } = useAppStore()
-  const [token, setToken] = useState(null)
-  const [serverUrl, setServerUrl] = useState(null)
+  const [roomData, setRoomData] = useState(null)
   const [error, setError] = useState(null)
-  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     livekitApi.getToken(currentClient.id)
-      .then(r => { setToken(r.data.token); setServerUrl(r.data.url) })
+      .then(r => setRoomData({ token: r.data.token, url: r.data.url }))
       .catch(() => setError('Не удалось подключиться. Проверьте подписку и попробуйте снова.'))
-      .finally(() => setLoading(false))
   }, [])
 
-  if (loading || error || !token) {
+  if (error || !roomData) {
     return (
       <CallLoadingScreen
         name={currentClient.name}
@@ -316,8 +367,8 @@ export function CallScreen() {
 
   return (
     <LiveKitRoom
-      token={token}
-      serverUrl={serverUrl}
+      token={roomData.token}
+      serverUrl={roomData.url}
       connect
       video
       audio

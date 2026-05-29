@@ -27,11 +27,13 @@ export function MaterialsScreen() {
   const [materials, setMaterials] = useState([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
+  const [deletingId, setDeletingId] = useState(null)
   const fileRef = useRef()
 
   useEffect(() => {
     materialsApi.list(currentClient.id)
-      .then((r) => setMaterials(r.data))
+      .then(r => setMaterials(r.data))
+      .catch(() => {})
       .finally(() => setLoading(false))
   }, [currentClient.id])
 
@@ -41,7 +43,7 @@ export function MaterialsScreen() {
     setUploading(true)
     try {
       const res = await materialsApi.upload(currentClient.id, file)
-      setMaterials((m) => [res.data, ...m])
+      setMaterials(m => [res.data, ...m])
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success')
     } catch {
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')
@@ -51,9 +53,19 @@ export function MaterialsScreen() {
     }
   }
 
-  const handleDelete = async (id) => {
-    await materialsApi.delete(currentClient.id, id)
-    setMaterials((m) => m.filter((x) => x.id !== id))
+  const handleDelete = async (material) => {
+    if (deletingId) return
+    setDeletingId(material.id)
+    setMaterials(m => m.filter(x => x.id !== material.id))
+    try {
+      await materialsApi.delete(currentClient.id, material.id)
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('warning')
+    } catch {
+      setMaterials(m => [material, ...m])
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   return (
@@ -91,7 +103,7 @@ export function MaterialsScreen() {
         ) : (
           <div className={styles.list}>
             {materials.map((m, i) => (
-              <Card key={m.id} className={styles.card} style={{ animationDelay: `${i * 0.04}s` }}>
+              <Card key={m.id} className={styles.card} style={{ animationDelay: `${i * 0.04}s`, opacity: deletingId === m.id ? 0.4 : 1 }}>
                 <span className={styles.icon}>{fileIcon(m.mime_type)}</span>
                 <div className={styles.info}>
                   <p className={styles.filename}>{m.original_name}</p>
@@ -99,17 +111,26 @@ export function MaterialsScreen() {
                 </div>
                 <div className={styles.actions}>
                   <a
-                    href={materialsApi.download(currentClient.id, m.id)}
+                    href={materialsApi.downloadUrl(currentClient.id, m.id)}
                     className={styles.downloadBtn}
                     download={m.original_name}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="7 10 12 15 17 10"/>
+                      <line x1="12" y1="15" x2="12" y2="3"/>
                     </svg>
                   </a>
-                  <button className={styles.delBtn} onClick={() => handleDelete(m.id)}>
+                  <button
+                    className={styles.delBtn}
+                    onClick={() => handleDelete(m)}
+                    disabled={!!deletingId}
+                  >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>
+                      <polyline points="3 6 5 6 21 6"/>
+                      <path d="M19 6l-1 14H6L5 6"/>
+                      <path d="M10 11v6"/>
+                      <path d="M14 11v6"/>
                     </svg>
                   </button>
                 </div>

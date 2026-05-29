@@ -8,8 +8,9 @@ import { Input } from '../components/ui/Input'
 import styles from './SessionsScreen.module.css'
 
 function formatDateTime(dateStr) {
-  const d = new Date(dateStr)
-  return d.toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
+  return new Date(dateStr).toLocaleString('ru-RU', {
+    day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit',
+  })
 }
 
 export function SessionsScreen() {
@@ -19,10 +20,13 @@ export function SessionsScreen() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [form, setForm] = useState({ scheduled_at: '', payment_status: 'unpaid' })
   const [saving, setSaving] = useState(false)
+  const [togglingId, setTogglingId] = useState(null)
+  const [deletingId, setDeletingId] = useState(null)
 
   useEffect(() => {
     sessionsApi.list(currentClient.id)
-      .then((r) => setSessions(r.data))
+      .then(r => setSessions(r.data))
+      .catch(() => {})
       .finally(() => setLoading(false))
   }, [currentClient.id])
 
@@ -34,28 +38,47 @@ export function SessionsScreen() {
         scheduled_at: new Date(form.scheduled_at).toISOString(),
         payment_status: form.payment_status,
       })
-      setSessions((s) => [...s, res.data].sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at)))
+      setSessions(s => [...s, res.data].sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at)))
       setSheetOpen(false)
       setForm({ scheduled_at: '', payment_status: 'unpaid' })
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success')
+    } catch {
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')
     } finally {
       setSaving(false)
     }
   }
 
   const togglePayment = async (session) => {
-    if (!subscriptionActive) return
+    if (!subscriptionActive || togglingId) return
     const newStatus = session.payment_status === 'paid' ? 'unpaid' : 'paid'
-    const res = await sessionsApi.update(currentClient.id, session.id, { payment_status: newStatus })
-    setSessions((s) => s.map((x) => (x.id === session.id ? res.data : x)))
-    window.Telegram?.WebApp?.HapticFeedback?.selectionChanged()
+    setTogglingId(session.id)
+    setSessions(s => s.map(x => x.id === session.id ? { ...x, payment_status: newStatus } : x))
+    try {
+      const res = await sessionsApi.update(currentClient.id, session.id, { payment_status: newStatus })
+      setSessions(s => s.map(x => x.id === session.id ? res.data : x))
+      window.Telegram?.WebApp?.HapticFeedback?.selectionChanged()
+    } catch {
+      setSessions(s => s.map(x => x.id === session.id ? session : x))
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')
+    } finally {
+      setTogglingId(null)
+    }
   }
 
-  const handleDelete = async (id) => {
-    if (!subscriptionActive) return
-    await sessionsApi.delete(currentClient.id, id)
-    setSessions((s) => s.filter((x) => x.id !== id))
-    window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('warning')
+  const handleDelete = async (session) => {
+    if (!subscriptionActive || deletingId) return
+    setDeletingId(session.id)
+    setSessions(s => s.filter(x => x.id !== session.id))
+    try {
+      await sessionsApi.delete(currentClient.id, session.id)
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('warning')
+    } catch {
+      setSessions(s => [...s, session].sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at)))
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   return (
@@ -111,12 +134,24 @@ export function SessionsScreen() {
                 </div>
                 {subscriptionActive && (
                   <div className={styles.cardActions}>
-                    <button className={styles.payBtn} onClick={() => togglePayment(s)}>
+                    <button
+                      className={styles.payBtn}
+                      onClick={() => togglePayment(s)}
+                      disabled={!!togglingId}
+                    >
                       {s.payment_status === 'paid' ? '✅' : '⬜'}
                     </button>
-                    <button className={styles.delBtn} onClick={() => handleDelete(s.id)}>
+                    <button
+                      className={styles.delBtn}
+                      onClick={() => handleDelete(s)}
+                      disabled={!!deletingId}
+                    >
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6l-1 14H6L5 6"/>
+                        <path d="M10 11v6"/>
+                        <path d="M14 11v6"/>
+                        <path d="M9 6V4h6v2"/>
                       </svg>
                     </button>
                   </div>
@@ -128,15 +163,20 @@ export function SessionsScreen() {
       </div>
 
       <BottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)} title="Новое занятие">
-        <Input label="Дата и время" type="datetime-local" value={form.scheduled_at} onChange={(e) => setForm((f) => ({ ...f, scheduled_at: e.target.value }))} />
+        <Input
+          label="Дата и время"
+          type="datetime-local"
+          value={form.scheduled_at}
+          onChange={e => setForm(f => ({ ...f, scheduled_at: e.target.value }))}
+        />
         <div className={styles.paymentToggle}>
           <span className={styles.paymentLabel}>Статус оплаты</span>
           <div className={styles.paymentOptions}>
-            {['unpaid', 'paid'].map((v) => (
+            {['unpaid', 'paid'].map(v => (
               <button
                 key={v}
                 className={`${styles.payOpt} ${form.payment_status === v ? styles.payOptActive : ''}`}
-                onClick={() => setForm((f) => ({ ...f, payment_status: v }))}
+                onClick={() => setForm(f => ({ ...f, payment_status: v }))}
               >
                 {v === 'paid' ? 'Оплачено' : 'Не оплачено'}
               </button>
