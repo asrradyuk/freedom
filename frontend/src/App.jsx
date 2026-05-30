@@ -25,7 +25,7 @@ function LoadingScreen() {
         FREEDOM
       </p>
       <div className="spinner" />
-      <style>{`.spinner { width:32px;height:32px;border-radius:50%;border:3px solid var(--blue-light);border-top-color:var(--blue-mid);animation:spin 0.8s linear infinite; } @keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      <style>{`.spinner{width:32px;height:32px;border-radius:50%;border:3px solid var(--blue-light);border-top-color:var(--blue-mid);animation:spin 0.8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   )
 }
@@ -43,27 +43,30 @@ const SPECIALIST_SCREENS = {
 
 export default function App() {
   useTelegram()
-  const { activeScreen, setUser, setClients, role, onboardingDone, completeOnboarding } = useAppStore()
+  const { activeScreen, role, setUser, setClients, onboardingDone, completeOnboarding } = useAppStore()
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
+    if (role === 'client') {
+      setReady(true)
+      return
+    }
+
     Promise.all([
-      authApi.me().then((r) => r.data).catch(() => null),
-      clientsApi.list().then((r) => r.data).catch(() => []),
+      authApi.me().then(r => r.data).catch(() => null),
+      clientsApi.list().then(r => r.data).catch(() => []),
     ])
       .then(([user, clients]) => {
         if (user) setUser(user)
         setClients(clients)
       })
       .finally(() => setReady(true))
-  }, [])
+  }, [role])
 
   if (!ready) return <LoadingScreen />
   if (!role) return <RoleSelectScreen />
   if (role === 'client') return <ClientViewScreen />
-  if (role === 'specialist' && !onboardingDone) {
-    return <OnboardingScreen onDone={completeOnboarding} />
-  }
+  if (role === 'specialist' && !onboardingDone) return <OnboardingScreen onDone={completeOnboarding} />
 
   const Screen = SPECIALIST_SCREENS[activeScreen] || HomeScreen
   const hideNav = ['client', 'sessions', 'materials', 'call'].includes(activeScreen)
