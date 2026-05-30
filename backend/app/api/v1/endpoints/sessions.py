@@ -62,8 +62,9 @@ async def create_session(
     db.add(session)
     await db.flush()
 
-    for reminder_type in ReminderType:
-        db.add(Reminder(session_id=session.id, reminder_type=reminder_type))
+    if client.reminders_enabled:
+        for reminder_type in ReminderType:
+            db.add(Reminder(session_id=session.id, reminder_type=reminder_type))
 
     await db.commit()
     await db.refresh(session)

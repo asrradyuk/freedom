@@ -1,18 +1,19 @@
-from fastapi import APIRouter, Depends, UploadFile, File
-from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
 from pathlib import Path
+
 import aiofiles
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi.responses import Response
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.deps import get_current_user
 from app.db.session import get_db
 from app.models.models import User
 from app.schemas.schemas import UserOut, UserUpdate
+from app.services.storage import delete_file, save_file, file_response
 
 router = APIRouter()
-
-UPLOAD_DIR = Path(settings.UPLOAD_DIR)
 
 
 @router.get("/", response_model=UserOut)
@@ -41,43 +42,47 @@ async def upload_avatar(
 ):
     content = await file.read()
     if len(content) > 5 * 1024 * 1024:
-        from fastapi import HTTPException, status
-        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="File too large (max 5MB)")
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Max 5MB")
 
-    avatar_dir = UPLOAD_DIR / "avatars"
-    avatar_dir.mkdir(parents=True, exist_ok=True)
+    ext = Path(file.filename or "avatar.jpg").suffix or ".jpg"
+    key = f"avatars/{uuid.uuid4()}{ext}"
 
-    ext = Path(file.filename).suffix or ".jpg"
-    filename = f"{uuid.uuid4()}{ext}"
-    path = avatar_dir / filename
+    old_url = user.avatar_url
+    stored = await save_file(content, key, file.content_type)
 
-    async with aiofiles.open(path, "wb") as f:
-        await f.write(content)
+    if settings.r2_enabled and settings.R2_PUBLIC_URL:
+        user.avatar_url = f"{settings.R2_PUBLIC_URL.rstrip('/')}/{key}"
+    elif settings.r2_enabled:
+        user.avatar_url = f"/api/v1/profile/avatar-file/{key}"
+    else:
+        user.avatar_url = f"/api/v1/profile/avatar-file/{key}"
 
-    user.avatar_url = f"/api/v1/profile/avatar/{filename}"
     await db.commit()
     await db.refresh(user)
+
+    if old_url and "/api/v1/profile/avatar-file/" in (old_url or ""):
+        old_key = old_url.split("/api/v1/profile/avatar-file/")[-1]
+        try:
+            await delete_file(old_key if settings.r2_enabled else str(Path(settings.UPLOAD_DIR) / old_key))
+        except Exception:
+            pass
+
     return user
 
 
-@router.get("/avatar/{filename}")
-async def get_avatar(filename: str):
-    from fastapi.responses import FileResponse
-    from fastapi import HTTPException, status
-    path = UPLOAD_DIR / "avatars" / filename
-    if not path.exists():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    return FileResponse(path)
+@router.get("/avatar-file/{file_path:path}")
+async def get_avatar_file(file_path: str):
+    return file_response(file_path, file_path.split("/")[-1], "image/jpeg")
+
 
 @router.get("/tg-avatar/{tg_id}")
 async def get_tg_avatar(tg_id: int):
     import httpx
-    from fastapi.responses import Response
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             photos_res = await client.get(
                 f"https://api.telegram.org/bot{settings.BOT_TOKEN}/getUserProfilePhotos",
-                params={"user_id": tg_id, "limit": 1}
+                params={"user_id": tg_id, "limit": 1},
             )
             photos_data = photos_res.json()
             if not photos_data.get("ok") or not photos_data["result"]["photos"]:
@@ -85,7 +90,7 @@ async def get_tg_avatar(tg_id: int):
             file_id = photos_data["result"]["photos"][0][-1]["file_id"]
             file_res = await client.get(
                 f"https://api.telegram.org/bot{settings.BOT_TOKEN}/getFile",
-                params={"file_id": file_id}
+                params={"file_id": file_id},
             )
             file_path = file_res.json()["result"]["file_path"]
             img_res = await client.get(
@@ -94,7 +99,7 @@ async def get_tg_avatar(tg_id: int):
             return Response(
                 content=img_res.content,
                 media_type="image/jpeg",
-                headers={"Cache-Control": "public, max-age=3600"}
+                headers={"Cache-Control": "public, max-age=86400"},
             )
     except HTTPException:
         raise

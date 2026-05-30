@@ -1,9 +1,7 @@
 import uuid
 from pathlib import Path
 
-import aiofiles
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
-from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,10 +10,10 @@ from app.core.deps import get_current_user
 from app.db.session import get_db
 from app.models.models import Client, Material, SubscriptionStatus, User
 from app.schemas.schemas import MaterialOut
+from app.services.storage import delete_file, file_response, save_file
 
 router = APIRouter()
 
-UPLOAD_DIR = Path(settings.UPLOAD_DIR)
 MAX_BYTES = settings.MAX_FILE_SIZE_MB * 1024 * 1024
 
 
@@ -61,18 +59,12 @@ async def upload_material(
             detail=f"File exceeds {settings.MAX_FILE_SIZE_MB}MB limit",
         )
 
-    dest_dir = UPLOAD_DIR / str(client_id)
-    dest_dir.mkdir(parents=True, exist_ok=True)
-
-    unique_name = f"{uuid.uuid4()}_{file.filename}"
-    dest_path = dest_dir / unique_name
-
-    async with aiofiles.open(dest_path, "wb") as f:
-        await f.write(content)
+    key = f"materials/{client_id}/{uuid.uuid4()}_{Path(file.filename).name}"
+    stored = await save_file(content, key, file.content_type)
 
     material = Material(
         client_id=client_id,
-        filename=str(dest_path),
+        filename=stored,
         original_name=file.filename,
         file_size=len(content),
         mime_type=file.content_type,
@@ -91,6 +83,28 @@ async def download_material(
     db: AsyncSession = Depends(get_db),
 ):
     await _get_client_or_404(client_id, user, db)
+    result = await db.execute(
+        select(Material).where(Material.id == material_id, Material.client_id == client_id)
+    )
+    material = result.scalar_one_or_none()
+    if not material:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found")
+    return file_response(material.filename, material.original_name, material.mime_type)
+
+
+@router.get("/{material_id}/client-download")
+async def client_download_material(
+    client_id: uuid.UUID,
+    material_id: uuid.UUID,
+    tg_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    client_result = await db.execute(
+        select(Client).where(Client.id == client_id, Client.client_tg_id == tg_id)
+    )
+    client = client_result.scalar_one_or_none()
+    if not client:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
     result = await db.execute(
         select(Material).where(Material.id == material_id, Material.client_id == client_id)
@@ -98,12 +112,7 @@ async def download_material(
     material = result.scalar_one_or_none()
     if not material:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found")
-
-    path = Path(material.filename)
-    if not path.exists():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found on disk")
-
-    return FileResponse(path=path, filename=material.original_name, media_type=material.mime_type)
+    return file_response(material.filename, material.original_name, material.mime_type)
 
 
 @router.delete("/{material_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -114,7 +123,6 @@ async def delete_material(
     db: AsyncSession = Depends(get_db),
 ):
     await _get_client_or_404(client_id, user, db)
-
     result = await db.execute(
         select(Material).where(Material.id == material_id, Material.client_id == client_id)
     )
@@ -122,9 +130,6 @@ async def delete_material(
     if not material:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found")
 
-    path = Path(material.filename)
-    if path.exists():
-        path.unlink()
-
+    await delete_file(material.filename)
     await db.delete(material)
     await db.commit()
