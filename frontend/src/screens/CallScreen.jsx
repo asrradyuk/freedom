@@ -7,37 +7,54 @@ import {
   useChat,
   useParticipants,
 } from '@livekit/components-react'
-import { Track, createLocalAudioTrack } from 'livekit-client'
+import { Track, createLocalAudioTrack, createLocalVideoTrack } from 'livekit-client'
 import { livekitApi } from '../api'
 import { useAppStore } from '../store'
 import styles from './CallScreen.module.css'
 
-const AUDIO_NORMAL = { noiseSuppression: true, echoCancellation: true, autoGainControl: true }
-const AUDIO_ORIGINAL = { noiseSuppression: false, echoCancellation: false, autoGainControl: false, sampleRate: 48000 }
+const AUDIO_NORMAL = {
+  noiseSuppression: true,
+  echoCancellation: true,
+  autoGainControl: true,
+}
+const AUDIO_ORIGINAL = {
+  noiseSuppression: false,
+  echoCancellation: false,
+  autoGainControl: false,
+  sampleRate: 48000,
+}
 
-async function publishAudioTrack(localParticipant, constraints) {
-  const existing = localParticipant.getTrackPublication(Track.Source.Microphone)
-  if (existing?.track) {
-    await localParticipant.unpublishTrack(existing.track)
-    existing.track.mediaStreamTrack.stop()
+async function replaceAudioTrack(localParticipant, constraints) {
+  const pubs = localParticipant.getTrackPublications()
+  for (const pub of pubs.values()) {
+    if (pub.source === Track.Source.Microphone || pub.kind === 'audio') {
+      try {
+        await localParticipant.unpublishTrack(pub.track, true)
+      } catch {}
+    }
   }
   const track = await createLocalAudioTrack(constraints)
   await localParticipant.publishTrack(track, { source: Track.Source.Microphone })
   return track
 }
 
-async function unpublishAudioTrack(localParticipant) {
-  const pub = localParticipant.getTrackPublication(Track.Source.Microphone)
-  if (!pub?.track) return
-  await localParticipant.unpublishTrack(pub.track)
-  pub.track.mediaStreamTrack.stop()
+async function removeAudioTrack(localParticipant) {
+  const pubs = localParticipant.getTrackPublications()
+  for (const pub of pubs.values()) {
+    if (pub.source === Track.Source.Microphone || pub.kind === 'audio') {
+      try {
+        await localParticipant.unpublishTrack(pub.track, true)
+      } catch {}
+    }
+  }
 }
 
-function stopAllLocalTracks(localParticipant) {
+function stopAllLocalMedia(localParticipant) {
   try {
-    localParticipant.getTrackPublications().forEach(pub => {
+    const pubs = localParticipant.getTrackPublications()
+    for (const pub of pubs.values()) {
       try { pub.track?.mediaStreamTrack?.stop() } catch {}
-    })
+    }
   } catch {}
 }
 
@@ -89,21 +106,22 @@ function VideoArea() {
 
   const localCamTrack = localParticipant?.getTrackPublication(Track.Source.Camera)?.track
   const localName = localParticipant?.name || 'Вы'
-
-  const mainTrack = remoteScreenTracks[0]?.publication?.track
-    || localScreenTracks[0]?.publication?.track
-    || remoteCamTracks[0]?.publication?.track
-  const mainMuted = !remoteScreenTracks[0] && !!localScreenTracks[0]
-  const pipTrack = (remoteScreenTracks[0] || localScreenTracks[0])
-    ? remoteCamTracks[0]?.publication?.track
-    : null
-
   const remoteParticipant = participants.find(p => !p.isLocal)
+
+  const mainTrack =
+    remoteScreenTracks[0]?.publication?.track ||
+    localScreenTracks[0]?.publication?.track ||
+    remoteCamTracks[0]?.publication?.track
+  const mainMuted = !remoteScreenTracks[0] && !!localScreenTracks[0]
+  const pipTrack =
+    remoteScreenTracks[0] || localScreenTracks[0]
+      ? remoteCamTracks[0]?.publication?.track
+      : null
 
   return (
     <div className={styles.videoArea}>
       {audioTracks.map((t, i) =>
-        t.publication?.track && <TrackAudio key={i} track={t.publication.track} />
+        t.publication?.track ? <TrackAudio key={i} track={t.publication.track} /> : null
       )}
       <div className={styles.mainVideo}>
         {mainTrack ? (
@@ -125,10 +143,11 @@ function VideoArea() {
         </div>
       )}
       <div className={styles.localWrap}>
-        {localCamTrack
-          ? <TrackVideo track={localCamTrack} muted className={styles.localVideo} />
-          : <div className={styles.localAvatar}>{localName.charAt(0).toUpperCase()}</div>
-        }
+        {localCamTrack ? (
+          <TrackVideo track={localCamTrack} muted className={styles.localVideo} />
+        ) : (
+          <div className={styles.localAvatar}>{localName.charAt(0).toUpperCase()}</div>
+        )}
         <p className={styles.localLabel}>Вы</p>
       </div>
     </div>
@@ -140,7 +159,11 @@ function ChatPanel({ onClose }) {
   const [text, setText] = useState('')
   const bottomRef = useRef(null)
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [chatMessages])
-  const handleSend = () => { if (!text.trim()) return; send(text.trim()); setText('') }
+  const handleSend = () => {
+    if (!text.trim()) return
+    send(text.trim())
+    setText('')
+  }
   return (
     <div className={styles.chatPanel}>
       <div className={styles.chatHeader}>
@@ -187,30 +210,45 @@ function CtrlBtn({ icon, label, active, danger, disabled, onClick }) {
 function Controls({ onHangUp, showChat, setShowChat, isClient }) {
   const room = useRoomContext()
   const { localParticipant } = useLocalParticipant()
+
   const [mic, setMic] = useState(true)
   const [cam, setCam] = useState(true)
   const [screen, setScreen] = useState(false)
   const [originalSound, setOriginalSound] = useState(false)
-  const [micBusy, setMicBusy] = useState(false)
+  const [audioBusy, setAudioBusy] = useState(false)
   const [camBusy, setCamBusy] = useState(false)
   const [screenBusy, setScreenBusy] = useState(false)
 
   const toggleMic = useCallback(async () => {
-    if (micBusy) return
-    setMicBusy(true)
+    if (audioBusy) return
+    setAudioBusy(true)
     try {
       if (mic) {
-        await unpublishAudioTrack(localParticipant)
+        await removeAudioTrack(localParticipant)
         setMic(false)
       } else {
-        await publishAudioTrack(localParticipant, originalSound ? AUDIO_ORIGINAL : AUDIO_NORMAL)
+        await replaceAudioTrack(localParticipant, originalSound ? AUDIO_ORIGINAL : AUDIO_NORMAL)
         setMic(true)
       }
     } catch {
     } finally {
-      setMicBusy(false)
+      setAudioBusy(false)
     }
-  }, [mic, micBusy, originalSound, localParticipant])
+  }, [mic, audioBusy, originalSound, localParticipant])
+
+  const toggleOriginal = useCallback(async () => {
+    if (audioBusy) return
+    setAudioBusy(true)
+    const next = !originalSound
+    try {
+      await replaceAudioTrack(localParticipant, next ? AUDIO_ORIGINAL : AUDIO_NORMAL)
+      setOriginalSound(next)
+      setMic(true)
+    } catch {
+    } finally {
+      setAudioBusy(false)
+    }
+  }, [originalSound, audioBusy, localParticipant])
 
   const toggleCam = useCallback(async () => {
     if (camBusy) return
@@ -219,12 +257,12 @@ function Controls({ onHangUp, showChat, setShowChat, isClient }) {
       if (cam) {
         const pub = localParticipant.getTrackPublication(Track.Source.Camera)
         if (pub?.track) {
-          await localParticipant.unpublishTrack(pub.track)
-          pub.track.mediaStreamTrack.stop()
+          await localParticipant.unpublishTrack(pub.track, true)
         }
         setCam(false)
       } else {
-        await localParticipant.setCameraEnabled(true)
+        const track = await createLocalVideoTrack()
+        await localParticipant.publishTrack(track, { source: Track.Source.Camera })
         setCam(true)
       }
     } catch {
@@ -246,22 +284,8 @@ function Controls({ onHangUp, showChat, setShowChat, isClient }) {
     }
   }, [screen, screenBusy, localParticipant])
 
-  const toggleOriginal = useCallback(async () => {
-    if (micBusy) return
-    setMicBusy(true)
-    const next = !originalSound
-    try {
-      await publishAudioTrack(localParticipant, next ? AUDIO_ORIGINAL : AUDIO_NORMAL)
-      setOriginalSound(next)
-      setMic(true)
-    } catch {
-    } finally {
-      setMicBusy(false)
-    }
-  }, [originalSound, micBusy, localParticipant])
-
   const hangUp = useCallback(async () => {
-    stopAllLocalTracks(localParticipant)
+    stopAllLocalMedia(localParticipant)
     try { await room.disconnect() } finally { onHangUp() }
   }, [localParticipant, room, onHangUp])
 
@@ -272,17 +296,17 @@ function Controls({ onHangUp, showChat, setShowChat, isClient }) {
         <button
           className={`${styles.toggle} ${originalSound ? styles.toggleOn : ''}`}
           onClick={toggleOriginal}
-          disabled={micBusy}
+          disabled={audioBusy}
         >
           <span className={styles.toggleThumb} />
         </button>
       </div>
       <div className={styles.btnRow}>
         <CtrlBtn
-          icon={micBusy ? '⏳' : mic ? '🎤' : '🔇'}
+          icon={audioBusy ? '⏳' : mic ? '🎤' : '🔇'}
           label={mic ? 'Звук' : 'Выкл'}
           active={!mic}
-          disabled={micBusy}
+          disabled={audioBusy}
           onClick={toggleMic}
         />
         <CtrlBtn
@@ -314,7 +338,12 @@ function InnerCall({ onHangUp, isClient }) {
     <div className={styles.callWrap}>
       <VideoArea />
       {showChat && <ChatPanel onClose={() => setShowChat(false)} />}
-      <Controls onHangUp={onHangUp} showChat={showChat} setShowChat={setShowChat} isClient={isClient} />
+      <Controls
+        onHangUp={onHangUp}
+        showChat={showChat}
+        setShowChat={setShowChat}
+        isClient={isClient}
+      />
     </div>
   )
 }
@@ -325,15 +354,14 @@ function CallLoadingScreen({ name, error, onCancel }) {
       <div className={styles.centerState}>
         <div className={styles.avatarCircle}>{(name || '?').charAt(0).toUpperCase()}</div>
         {name && <p className={styles.clientName}>{name}</p>}
-        {error
-          ? <p className={styles.errorText}>{error}</p>
-          : (
-            <>
-              <p className={styles.statusText}>Подключение...</p>
-              <div className={styles.dots}><span /><span /><span /></div>
-            </>
-          )
-        }
+        {error ? (
+          <p className={styles.errorText}>{error}</p>
+        ) : (
+          <>
+            <p className={styles.statusText}>Подключение...</p>
+            <div className={styles.dots}><span /><span /><span /></div>
+          </>
+        )}
       </div>
       <div className={styles.bottomArea}>
         <button className={styles.hangUpBtn} onClick={onCancel}>
@@ -352,7 +380,7 @@ export function CallScreen() {
   useEffect(() => {
     livekitApi.getToken(currentClient.id)
       .then(r => setRoomData({ token: r.data.token, url: r.data.url }))
-      .catch(() => setError('Не удалось подключиться. Проверьте подписку и попробуйте снова.'))
+      .catch(() => setError('Не удалось подключиться. Проверьте подписку.'))
   }, [])
 
   if (error || !roomData) {
