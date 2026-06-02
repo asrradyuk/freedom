@@ -10,28 +10,17 @@ import {
 import { Track, createLocalAudioTrack } from 'livekit-client'
 import styles from './CallScreen.module.css'
 
-const AUDIO_NORMAL = {
-  noiseSuppression: true,
-  echoCancellation: true,
-  autoGainControl: true,
-}
-const AUDIO_ORIGINAL = {
-  noiseSuppression: false,
-  echoCancellation: false,
-  autoGainControl: false,
-  sampleRate: 48000,
-}
+const AUDIO = { noiseSuppression: true, echoCancellation: true, autoGainControl: true }
 
-async function replaceAudioTrack(localParticipant, constraints) {
+async function replaceAudioTrack(localParticipant) {
   const pubs = localParticipant.getTrackPublications()
   for (const pub of pubs.values()) {
     if (pub.source === Track.Source.Microphone || pub.kind === 'audio') {
       try { await localParticipant.unpublishTrack(pub.track, true) } catch {}
     }
   }
-  const track = await createLocalAudioTrack(constraints)
+  const track = await createLocalAudioTrack(AUDIO)
   await localParticipant.publishTrack(track, { source: Track.Source.Microphone })
-  return track
 }
 
 async function removeAudioTrack(localParticipant) {
@@ -112,11 +101,10 @@ function VideoArea() {
         )}
       </div>
       <div className={styles.localWrap}>
-        {localCamTrack ? (
-          <TrackVideo track={localCamTrack} muted className={styles.localVideo} />
-        ) : (
-          <div className={styles.localAvatar}>{localName.charAt(0).toUpperCase()}</div>
-        )}
+        {localCamTrack
+          ? <TrackVideo track={localCamTrack} muted className={styles.localVideo} />
+          : <div className={styles.localAvatar}>{localName.charAt(0).toUpperCase()}</div>
+        }
         <p className={styles.localLabel}>Вы</p>
       </div>
     </div>
@@ -128,11 +116,7 @@ function ChatPanel({ onClose }) {
   const [text, setText] = useState('')
   const bottomRef = useRef(null)
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [chatMessages])
-  const handleSend = () => {
-    if (!text.trim()) return
-    send(text.trim())
-    setText('')
-  }
+  const handleSend = () => { if (!text.trim()) return; send(text.trim()); setText('') }
   return (
     <div className={styles.chatPanel}>
       <div className={styles.chatHeader}>
@@ -169,7 +153,6 @@ function InnerClientCall({ onLeave }) {
   const [mic, setMic] = useState(true)
   const [cam, setCam] = useState(true)
   const [showChat, setShowChat] = useState(false)
-  const [originalSound, setOriginalSound] = useState(false)
   const [audioBusy, setAudioBusy] = useState(false)
   const [camBusy, setCamBusy] = useState(false)
 
@@ -181,28 +164,14 @@ function InnerClientCall({ onLeave }) {
         await removeAudioTrack(localParticipant)
         setMic(false)
       } else {
-        await replaceAudioTrack(localParticipant, originalSound ? AUDIO_ORIGINAL : AUDIO_NORMAL)
+        await replaceAudioTrack(localParticipant)
         setMic(true)
       }
     } catch {
     } finally {
       setAudioBusy(false)
     }
-  }, [mic, audioBusy, originalSound, localParticipant])
-
-  const toggleOriginal = useCallback(async () => {
-    if (audioBusy) return
-    setAudioBusy(true)
-    const next = !originalSound
-    try {
-      await replaceAudioTrack(localParticipant, next ? AUDIO_ORIGINAL : AUDIO_NORMAL)
-      setOriginalSound(next)
-      setMic(true)
-    } catch {
-    } finally {
-      setAudioBusy(false)
-    }
-  }, [originalSound, audioBusy, localParticipant])
+  }, [mic, audioBusy, localParticipant])
 
   const toggleCam = useCallback(async () => {
     if (camBusy) return
@@ -237,16 +206,6 @@ function InnerClientCall({ onLeave }) {
       <VideoArea />
       {showChat && <ChatPanel onClose={() => setShowChat(false)} />}
       <div className={styles.controls}>
-        <div className={styles.soundRow}>
-          <span className={styles.soundLabel}>Оригинальный звук</span>
-          <button
-            className={`${styles.toggle} ${originalSound ? styles.toggleOn : ''}`}
-            onClick={toggleOriginal}
-            disabled={audioBusy}
-          >
-            <span className={styles.toggleThumb} />
-          </button>
-        </div>
         <div className={styles.btnRow}>
           <button
             className={`${styles.ctrlBtn} ${!mic ? styles.ctrlActive : ''}`}
@@ -286,9 +245,7 @@ export function ClientCallScreen({ token, url, onLeave }) {
     <LiveKitRoom
       token={token}
       serverUrl={url}
-      connect
-      video
-      audio
+      connect video audio
       onDisconnected={onLeave}
       style={{ height: '100dvh' }}
     >

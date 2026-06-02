@@ -12,39 +12,22 @@ import { livekitApi } from '../api'
 import { useAppStore } from '../store'
 import styles from './CallScreen.module.css'
 
-const AUDIO_NORMAL = {
-  noiseSuppression: true,
-  echoCancellation: true,
-  autoGainControl: true,
-}
-const AUDIO_ORIGINAL = {
-  noiseSuppression: false,
-  echoCancellation: false,
-  autoGainControl: false,
-  sampleRate: 48000,
-}
-
 async function replaceAudioTrack(localParticipant, constraints) {
   const pubs = localParticipant.getTrackPublications()
   for (const pub of pubs.values()) {
     if (pub.source === Track.Source.Microphone || pub.kind === 'audio') {
-      try {
-        await localParticipant.unpublishTrack(pub.track, true)
-      } catch {}
+      try { await localParticipant.unpublishTrack(pub.track, true) } catch {}
     }
   }
   const track = await createLocalAudioTrack(constraints)
   await localParticipant.publishTrack(track, { source: Track.Source.Microphone })
-  return track
 }
 
 async function removeAudioTrack(localParticipant) {
   const pubs = localParticipant.getTrackPublications()
   for (const pub of pubs.values()) {
     if (pub.source === Track.Source.Microphone || pub.kind === 'audio') {
-      try {
-        await localParticipant.unpublishTrack(pub.track, true)
-      } catch {}
+      try { await localParticipant.unpublishTrack(pub.track, true) } catch {}
     }
   }
 }
@@ -113,10 +96,9 @@ function VideoArea() {
     localScreenTracks[0]?.publication?.track ||
     remoteCamTracks[0]?.publication?.track
   const mainMuted = !remoteScreenTracks[0] && !!localScreenTracks[0]
-  const pipTrack =
-    remoteScreenTracks[0] || localScreenTracks[0]
-      ? remoteCamTracks[0]?.publication?.track
-      : null
+  const pipTrack = (remoteScreenTracks[0] || localScreenTracks[0])
+    ? remoteCamTracks[0]?.publication?.track
+    : null
 
   return (
     <div className={styles.videoArea}>
@@ -143,11 +125,10 @@ function VideoArea() {
         </div>
       )}
       <div className={styles.localWrap}>
-        {localCamTrack ? (
-          <TrackVideo track={localCamTrack} muted className={styles.localVideo} />
-        ) : (
-          <div className={styles.localAvatar}>{localName.charAt(0).toUpperCase()}</div>
-        )}
+        {localCamTrack
+          ? <TrackVideo track={localCamTrack} muted className={styles.localVideo} />
+          : <div className={styles.localAvatar}>{localName.charAt(0).toUpperCase()}</div>
+        }
         <p className={styles.localLabel}>Вы</p>
       </div>
     </div>
@@ -159,11 +140,7 @@ function ChatPanel({ onClose }) {
   const [text, setText] = useState('')
   const bottomRef = useRef(null)
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [chatMessages])
-  const handleSend = () => {
-    if (!text.trim()) return
-    send(text.trim())
-    setText('')
-  }
+  const handleSend = () => { if (!text.trim()) return; send(text.trim()); setText('') }
   return (
     <div className={styles.chatPanel}>
       <div className={styles.chatHeader}>
@@ -210,14 +187,14 @@ function CtrlBtn({ icon, label, active, danger, disabled, onClick }) {
 function Controls({ onHangUp, showChat, setShowChat, isClient }) {
   const room = useRoomContext()
   const { localParticipant } = useLocalParticipant()
-
   const [mic, setMic] = useState(true)
   const [cam, setCam] = useState(true)
   const [screen, setScreen] = useState(false)
-  const [originalSound, setOriginalSound] = useState(false)
   const [audioBusy, setAudioBusy] = useState(false)
   const [camBusy, setCamBusy] = useState(false)
   const [screenBusy, setScreenBusy] = useState(false)
+
+  const AUDIO = { noiseSuppression: true, echoCancellation: true, autoGainControl: true }
 
   const toggleMic = useCallback(async () => {
     if (audioBusy) return
@@ -227,28 +204,14 @@ function Controls({ onHangUp, showChat, setShowChat, isClient }) {
         await removeAudioTrack(localParticipant)
         setMic(false)
       } else {
-        await replaceAudioTrack(localParticipant, originalSound ? AUDIO_ORIGINAL : AUDIO_NORMAL)
+        await replaceAudioTrack(localParticipant, AUDIO)
         setMic(true)
       }
     } catch {
     } finally {
       setAudioBusy(false)
     }
-  }, [mic, audioBusy, originalSound, localParticipant])
-
-  const toggleOriginal = useCallback(async () => {
-    if (audioBusy) return
-    setAudioBusy(true)
-    const next = !originalSound
-    try {
-      await replaceAudioTrack(localParticipant, next ? AUDIO_ORIGINAL : AUDIO_NORMAL)
-      setOriginalSound(next)
-      setMic(true)
-    } catch {
-    } finally {
-      setAudioBusy(false)
-    }
-  }, [originalSound, audioBusy, localParticipant])
+  }, [mic, audioBusy, localParticipant])
 
   const toggleCam = useCallback(async () => {
     if (camBusy) return
@@ -256,9 +219,7 @@ function Controls({ onHangUp, showChat, setShowChat, isClient }) {
     try {
       if (cam) {
         const pub = localParticipant.getTrackPublication(Track.Source.Camera)
-        if (pub?.track) {
-          await localParticipant.unpublishTrack(pub.track, true)
-        }
+        if (pub?.track) await localParticipant.unpublishTrack(pub.track, true)
         setCam(false)
       } else {
         const track = await createLocalVideoTrack()
@@ -291,16 +252,6 @@ function Controls({ onHangUp, showChat, setShowChat, isClient }) {
 
   return (
     <div className={styles.controls}>
-      <div className={styles.soundRow}>
-        <span className={styles.soundLabel}>Оригинальный звук</span>
-        <button
-          className={`${styles.toggle} ${originalSound ? styles.toggleOn : ''}`}
-          onClick={toggleOriginal}
-          disabled={audioBusy}
-        >
-          <span className={styles.toggleThumb} />
-        </button>
-      </div>
       <div className={styles.btnRow}>
         <CtrlBtn
           icon={audioBusy ? '⏳' : mic ? '🎤' : '🔇'}
@@ -338,12 +289,7 @@ function InnerCall({ onHangUp, isClient }) {
     <div className={styles.callWrap}>
       <VideoArea />
       {showChat && <ChatPanel onClose={() => setShowChat(false)} />}
-      <Controls
-        onHangUp={onHangUp}
-        showChat={showChat}
-        setShowChat={setShowChat}
-        isClient={isClient}
-      />
+      <Controls onHangUp={onHangUp} showChat={showChat} setShowChat={setShowChat} isClient={isClient} />
     </div>
   )
 }
@@ -397,9 +343,7 @@ export function CallScreen() {
     <LiveKitRoom
       token={roomData.token}
       serverUrl={roomData.url}
-      connect
-      video
-      audio
+      connect video audio
       onDisconnected={() => setActiveScreen('client')}
       style={{ height: '100dvh' }}
     >
@@ -413,9 +357,7 @@ export function ClientCallScreen({ token, url, onLeave }) {
     <LiveKitRoom
       token={token}
       serverUrl={url}
-      connect
-      video
-      audio
+      connect video audio
       onDisconnected={onLeave}
       style={{ height: '100dvh' }}
     >

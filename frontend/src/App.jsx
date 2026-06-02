@@ -21,7 +21,10 @@ function LoadingScreen() {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       height: '100dvh', flexDirection: 'column', gap: 16, background: 'var(--milk)',
     }}>
-      <p style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, letterSpacing: '-0.5px', color: 'var(--gray-dark)' }}>
+      <p style={{
+        fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700,
+        letterSpacing: '-0.5px', color: 'var(--gray-dark)',
+      }}>
         FREEDOM
       </p>
       <div className="spinner" />
@@ -43,7 +46,7 @@ const SPECIALIST_SCREENS = {
 
 export default function App() {
   useTelegram()
-  const { activeScreen, role, setUser, setClients, onboardingDone, completeOnboarding } = useAppStore()
+  const { activeScreen, role, user, setUser, setClients, onboardingDone, completeOnboarding } = useAppStore()
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
@@ -54,13 +57,11 @@ export default function App() {
 
     Promise.all([
       authApi.me().then(r => r.data).catch(() => null),
-      clientsApi.list().then(r => r.data).catch(() => []),
-    ])
-      .then(([user, clients]) => {
-        if (user) setUser(user)
-        setClients(clients)
-      })
-      .finally(() => setReady(true))
+      clientsApi.list().then(r => r.data).catch(() => null),
+    ]).then(([userData, clientsData]) => {
+      if (userData) setUser(userData)
+      if (clientsData) setClients(clientsData)
+    }).finally(() => setReady(true))
   }, [role])
 
   if (!ready) return <LoadingScreen />
