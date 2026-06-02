@@ -12,14 +12,16 @@ import { livekitApi } from '../api'
 import { useAppStore } from '../store'
 import styles from './CallScreen.module.css'
 
-async function replaceAudioTrack(localParticipant, constraints) {
+const AUDIO = { noiseSuppression: true, echoCancellation: true, autoGainControl: true }
+
+async function replaceAudioTrack(localParticipant) {
   const pubs = localParticipant.getTrackPublications()
   for (const pub of pubs.values()) {
     if (pub.source === Track.Source.Microphone || pub.kind === 'audio') {
       try { await localParticipant.unpublishTrack(pub.track, true) } catch {}
     }
   }
-  const track = await createLocalAudioTrack(constraints)
+  const track = await createLocalAudioTrack(AUDIO)
   await localParticipant.publishTrack(track, { source: Track.Source.Microphone })
 }
 
@@ -194,23 +196,13 @@ function Controls({ onHangUp, showChat, setShowChat, isClient }) {
   const [camBusy, setCamBusy] = useState(false)
   const [screenBusy, setScreenBusy] = useState(false)
 
-  const AUDIO = { noiseSuppression: true, echoCancellation: true, autoGainControl: true }
-
   const toggleMic = useCallback(async () => {
     if (audioBusy) return
     setAudioBusy(true)
     try {
-      if (mic) {
-        await removeAudioTrack(localParticipant)
-        setMic(false)
-      } else {
-        await replaceAudioTrack(localParticipant, AUDIO)
-        setMic(true)
-      }
-    } catch {
-    } finally {
-      setAudioBusy(false)
-    }
+      if (mic) { await removeAudioTrack(localParticipant); setMic(false) }
+      else { await replaceAudioTrack(localParticipant); setMic(true) }
+    } catch {} finally { setAudioBusy(false) }
   }, [mic, audioBusy, localParticipant])
 
   const toggleCam = useCallback(async () => {
@@ -226,10 +218,7 @@ function Controls({ onHangUp, showChat, setShowChat, isClient }) {
         await localParticipant.publishTrack(track, { source: Track.Source.Camera })
         setCam(true)
       }
-    } catch {
-    } finally {
-      setCamBusy(false)
-    }
+    } catch {} finally { setCamBusy(false) }
   }, [cam, camBusy, localParticipant])
 
   const toggleScreen = useCallback(async () => {
@@ -238,11 +227,8 @@ function Controls({ onHangUp, showChat, setShowChat, isClient }) {
     try {
       await localParticipant.setScreenShareEnabled(!screen)
       setScreen(v => !v)
-    } catch {
-      setScreen(false)
-    } finally {
-      setScreenBusy(false)
-    }
+    } catch { setScreen(false) }
+    finally { setScreenBusy(false) }
   }, [screen, screenBusy, localParticipant])
 
   const hangUp = useCallback(async () => {
@@ -300,19 +286,13 @@ function CallLoadingScreen({ name, error, onCancel }) {
       <div className={styles.centerState}>
         <div className={styles.avatarCircle}>{(name || '?').charAt(0).toUpperCase()}</div>
         {name && <p className={styles.clientName}>{name}</p>}
-        {error ? (
-          <p className={styles.errorText}>{error}</p>
-        ) : (
-          <>
-            <p className={styles.statusText}>Подключение...</p>
-            <div className={styles.dots}><span /><span /><span /></div>
-          </>
-        )}
+        {error
+          ? <p className={styles.errorText}>{error}</p>
+          : <><p className={styles.statusText}>Подключение...</p><div className={styles.dots}><span /><span /><span /></div></>
+        }
       </div>
       <div className={styles.bottomArea}>
-        <button className={styles.hangUpBtn} onClick={onCancel}>
-          {error ? 'Назад' : 'Отмена'}
-        </button>
+        <button className={styles.hangUpBtn} onClick={onCancel}>{error ? 'Назад' : 'Отмена'}</button>
       </div>
     </div>
   )
@@ -330,23 +310,12 @@ export function CallScreen() {
   }, [])
 
   if (error || !roomData) {
-    return (
-      <CallLoadingScreen
-        name={currentClient.name}
-        error={error}
-        onCancel={() => setActiveScreen('client')}
-      />
-    )
+    return <CallLoadingScreen name={currentClient.name} error={error} onCancel={() => setActiveScreen('client')} />
   }
 
   return (
-    <LiveKitRoom
-      token={roomData.token}
-      serverUrl={roomData.url}
-      connect video audio
-      onDisconnected={() => setActiveScreen('client')}
-      style={{ height: '100dvh' }}
-    >
+    <LiveKitRoom token={roomData.token} serverUrl={roomData.url} connect video audio
+      onDisconnected={() => setActiveScreen('client')} style={{ height: '100dvh' }}>
       <InnerCall onHangUp={() => setActiveScreen('client')} isClient={false} />
     </LiveKitRoom>
   )
@@ -354,13 +323,8 @@ export function CallScreen() {
 
 export function ClientCallScreen({ token, url, onLeave }) {
   return (
-    <LiveKitRoom
-      token={token}
-      serverUrl={url}
-      connect video audio
-      onDisconnected={onLeave}
-      style={{ height: '100dvh' }}
-    >
+    <LiveKitRoom token={token} serverUrl={url} connect video audio
+      onDisconnected={onLeave} style={{ height: '100dvh' }}>
       <InnerCall onHangUp={onLeave} isClient={true} />
     </LiveKitRoom>
   )
