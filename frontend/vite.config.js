@@ -6,6 +6,9 @@ export default defineConfig({
   resolve: {
     extensions: ['.js', '.jsx', '.ts', '.tsx'],
   },
+  build: {
+    chunkSizeWarningLimit: 1000,
+  },
   server: {
     host: true,
     port: 5173,
