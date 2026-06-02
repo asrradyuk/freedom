@@ -76,10 +76,7 @@ function VideoArea() {
   const localCamTrack = localParticipant?.getTrackPublication(Track.Source.Camera)?.track
   const localName = localParticipant?.name || 'Вы'
   const remoteParticipant = participants.find(p => !p.isLocal)
-
-  const mainTrack =
-    remoteScreenTracks[0]?.publication?.track ||
-    remoteCamTracks[0]?.publication?.track
+  const mainTrack = remoteScreenTracks[0]?.publication?.track || remoteCamTracks[0]?.publication?.track
 
   return (
     <div className={styles.videoArea}>
@@ -160,17 +157,9 @@ function InnerClientCall({ onLeave }) {
     if (audioBusy) return
     setAudioBusy(true)
     try {
-      if (mic) {
-        await removeAudioTrack(localParticipant)
-        setMic(false)
-      } else {
-        await replaceAudioTrack(localParticipant)
-        setMic(true)
-      }
-    } catch {
-    } finally {
-      setAudioBusy(false)
-    }
+      if (mic) { await removeAudioTrack(localParticipant); setMic(false) }
+      else { await replaceAudioTrack(localParticipant); setMic(true) }
+    } catch {} finally { setAudioBusy(false) }
   }, [mic, audioBusy, localParticipant])
 
   const toggleCam = useCallback(async () => {
@@ -185,10 +174,7 @@ function InnerClientCall({ onLeave }) {
         await localParticipant.setCameraEnabled(true)
         setCam(true)
       }
-    } catch {
-    } finally {
-      setCamBusy(false)
-    }
+    } catch {} finally { setCamBusy(false) }
   }, [cam, camBusy, localParticipant])
 
   const hangUp = useCallback(async () => {
@@ -207,19 +193,11 @@ function InnerClientCall({ onLeave }) {
       {showChat && <ChatPanel onClose={() => setShowChat(false)} />}
       <div className={styles.controls}>
         <div className={styles.btnRow}>
-          <button
-            className={`${styles.ctrlBtn} ${!mic ? styles.ctrlActive : ''}`}
-            onClick={toggleMic}
-            disabled={audioBusy}
-          >
+          <button className={`${styles.ctrlBtn} ${!mic ? styles.ctrlActive : ''}`} onClick={toggleMic} disabled={audioBusy}>
             <span className={styles.ctrlIcon}>{audioBusy ? '⏳' : mic ? '🎤' : '🔇'}</span>
             <span className={styles.ctrlLabel}>{mic ? 'Звук' : 'Выкл'}</span>
           </button>
-          <button
-            className={`${styles.ctrlBtn} ${!cam ? styles.ctrlActive : ''}`}
-            onClick={toggleCam}
-            disabled={camBusy}
-          >
+          <button className={`${styles.ctrlBtn} ${!cam ? styles.ctrlActive : ''}`} onClick={toggleCam} disabled={camBusy}>
             <span className={styles.ctrlIcon}>{camBusy ? '⏳' : cam ? '📹' : '🚫'}</span>
             <span className={styles.ctrlLabel}>{cam ? 'Камера' : 'Выкл'}</span>
           </button>
@@ -227,10 +205,7 @@ function InnerClientCall({ onLeave }) {
             <span className={styles.ctrlIcon}>📵</span>
             <span className={styles.ctrlLabel}>Завершить</span>
           </button>
-          <button
-            className={`${styles.ctrlBtn} ${showChat ? styles.ctrlActive : ''}`}
-            onClick={() => setShowChat(v => !v)}
-          >
+          <button className={`${styles.ctrlBtn} ${showChat ? styles.ctrlActive : ''}`} onClick={() => setShowChat(v => !v)}>
             <span className={styles.ctrlIcon}>💬</span>
             <span className={styles.ctrlLabel}>Чат</span>
           </button>
@@ -242,13 +217,7 @@ function InnerClientCall({ onLeave }) {
 
 export function ClientCallScreen({ token, url, onLeave }) {
   return (
-    <LiveKitRoom
-      token={token}
-      serverUrl={url}
-      connect video audio
-      onDisconnected={onLeave}
-      style={{ height: '100dvh' }}
-    >
+    <LiveKitRoom token={token} serverUrl={url} connect video audio onDisconnected={onLeave} style={{ height: '100dvh' }}>
       <InnerClientCall onLeave={onLeave} />
     </LiveKitRoom>
   )

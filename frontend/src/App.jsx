@@ -21,10 +21,7 @@ function LoadingScreen() {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       height: '100dvh', flexDirection: 'column', gap: 16, background: 'var(--milk)',
     }}>
-      <p style={{
-        fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700,
-        letterSpacing: '-0.5px', color: 'var(--gray-dark)',
-      }}>
+      <p style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, letterSpacing: '-0.5px', color: 'var(--gray-dark)' }}>
         FREEDOM
       </p>
       <div className="spinner" />
@@ -46,7 +43,7 @@ const SPECIALIST_SCREENS = {
 
 export default function App() {
   useTelegram()
-  const { activeScreen, role, user, setUser, setClients, onboardingDone, completeOnboarding } = useAppStore()
+  const { activeScreen, role, setUser, setClients, onboardingDone, completeOnboarding } = useAppStore()
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
