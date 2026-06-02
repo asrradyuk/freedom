@@ -53,5 +53,4 @@ export const livekitApi = {
 }
 
 export const BASE_API_URL = BASE_URL
-
 export default api

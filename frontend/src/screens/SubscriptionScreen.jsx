@@ -70,7 +70,6 @@ export function SubscriptionScreen() {
       <div className={styles.header}>
         <h1 className={styles.title}>Подписка</h1>
       </div>
-
       <div className="screen-content">
         {subscriptionActive ? (
           <div className={styles.activeBlock}>
@@ -85,7 +84,6 @@ export function SubscriptionScreen() {
               <p className={styles.price}>599 ₽<span className={styles.priceUnit}>/месяц</span></p>
               <p className={styles.priceNote}>Всё необходимое для работы со своими клиентами</p>
             </Card>
-
             <div className={styles.features}>
               {FEATURES.map((f) => (
                 <div key={f.text} className={styles.feature}>
@@ -94,16 +92,17 @@ export function SubscriptionScreen() {
                 </div>
               ))}
             </div>
-
             <Button variant="primary" size="lg" style={{ width: '100%' }} onClick={handlePay} disabled={loadingPay}>
               {loadingPay ? 'Загрузка...' : 'Оплатить подписку — 599 ₽'}
             </Button>
-
             <button className={styles.confirmBtn} onClick={handleCheck} disabled={loadingCheck}>
               {loadingCheck ? 'Проверяем...' : 'Я уже оплатила — проверить статус'}
             </button>
-
-            {checkMsg && <p style={{ fontSize: 13, color: 'var(--gray-mid)', textAlign: 'center', marginTop: 8 }}>{checkMsg}</p>}
+            {checkMsg && (
+              <p style={{ fontSize: 13, color: 'var(--gray-mid)', textAlign: 'center', marginTop: 8 }}>
+                {checkMsg}
+              </p>
+            )}
           </>
         )}
       </div>
