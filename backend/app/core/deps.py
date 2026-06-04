@@ -10,7 +10,6 @@ from app.models.models import SubscriptionStatus, User
 
 FREE_ACCESS_IDS = {6748913141, 6425298190, 240569940}
 
-
 async def get_current_user(
     x_init_data: str = Header(..., alias="X-Init-Data"),
     db: AsyncSession = Depends(get_db),
