@@ -1,9 +1,7 @@
-import hashlib
-import hmac
 import json
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,10 +13,7 @@ from app.schemas.schemas import UserOut
 
 router = APIRouter()
 
-
-def _verify_yookassa_signature(body: bytes, ip: str) -> bool:
-    trusted_prefixes = ("185.71.76.", "185.71.77.", "77.75.153.", "77.75.154.", "2a02:5180:")
-    return any(ip.startswith(p) for p in trusted_prefixes)
+SUBSCRIPTION_DAYS = 31
 
 
 @router.get("/", response_model=UserOut)
@@ -28,8 +23,8 @@ async def get_subscription(user: User = Depends(get_current_user)):
 
 @router.get("/payment-url")
 async def get_payment_url(user: User = Depends(get_current_user)):
-    import uuid
     import httpx
+    import uuid
 
     if not settings.YUKASSA_SHOP_ID or not settings.YUKASSA_SECRET_KEY:
         if settings.PAYMENT_URL:
@@ -44,7 +39,7 @@ async def get_payment_url(user: User = Depends(get_current_user)):
             "return_url": settings.WEBAPP_URL,
         },
         "capture": True,
-        "description": f"Подписка FREEDOM на 30 дней (tg:{user.tg_id})",
+        "description": f"Подписка FREEDOM на {SUBSCRIPTION_DAYS} дней (tg:{user.tg_id})",
         "metadata": {"tg_id": str(user.tg_id)},
     }
 
@@ -59,7 +54,7 @@ async def get_payment_url(user: User = Depends(get_current_user)):
         data = r.json()
         url = data.get("confirmation", {}).get("confirmation_url")
         if not url:
-            raise HTTPException(status_code=502, detail="Failed to create payment")
+            raise HTTPException(status_code=500, detail="Failed to create payment")
         return {"url": url}
     except HTTPException:
         raise
@@ -72,7 +67,8 @@ async def get_payment_url(user: User = Depends(get_current_user)):
 @router.post("/webhook/yookassa")
 async def yookassa_webhook(request: Request, db: AsyncSession = Depends(get_db)):
     client_ip = request.client.host if request.client else ""
-    if not _verify_yookassa_signature(await request.body(), client_ip):
+    trusted_prefixes = ("185.71.76.", "185.71.77.", "77.75.153.", "77.75.154.")
+    if not any(client_ip.startswith(p) for p in trusted_prefixes):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
     body = await request.body()
@@ -84,8 +80,7 @@ async def yookassa_webhook(request: Request, db: AsyncSession = Depends(get_db))
     if data.get("event") != "payment.succeeded":
         return {"ok": True}
 
-    metadata = data.get("object", {}).get("metadata", {})
-    tg_id_str = metadata.get("tg_id")
+    tg_id_str = data.get("object", {}).get("metadata", {}).get("tg_id")
     if not tg_id_str:
         return {"ok": True}
 
@@ -98,7 +93,7 @@ async def yookassa_webhook(request: Request, db: AsyncSession = Depends(get_db))
     user = result.scalar_one_or_none()
     if user:
         user.subscription_status = SubscriptionStatus.active
-        user.subscription_expires_at = datetime.now(timezone.utc) + timedelta(days=30)
+        user.subscription_expires_at = datetime.now(timezone.utc) + timedelta(days=SUBSCRIPTION_DAYS)
         await db.commit()
 
     return {"ok": True}
@@ -119,7 +114,7 @@ async def admin_activate(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
     target.subscription_status = SubscriptionStatus.active
-    target.subscription_expires_at = datetime.now(timezone.utc) + timedelta(days=30)
+    target.subscription_expires_at = datetime.now(timezone.utc) + timedelta(days=SUBSCRIPTION_DAYS)
     await db.commit()
     await db.refresh(target)
     return target
