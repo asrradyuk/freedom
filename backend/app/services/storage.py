@@ -1,16 +1,15 @@
-import uuid
+import asyncio
 from pathlib import Path
 
 import aiofiles
-import boto3
-from botocore.config import Config
-from fastapi import UploadFile
-from fastapi.responses import FileResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, RedirectResponse
 
 from app.core.config import settings
 
 
 def _r2_client():
+    import boto3
+    from botocore.config import Config
     return boto3.client(
         "s3",
         endpoint_url=f"https://{settings.R2_ACCOUNT_ID}.r2.cloudflarestorage.com",
@@ -23,7 +22,6 @@ def _r2_client():
 
 async def save_file(content: bytes, key: str, content_type: str | None = None) -> str:
     if settings.r2_enabled:
-        import asyncio
         client = _r2_client()
         extra = {"ContentType": content_type} if content_type else {}
         await asyncio.to_thread(
@@ -44,13 +42,11 @@ async def save_file(content: bytes, key: str, content_type: str | None = None) -
 
 async def delete_file(stored_path: str) -> None:
     if settings.r2_enabled:
-        import asyncio
-        key = stored_path
         client = _r2_client()
         await asyncio.to_thread(
             client.delete_object,
             Bucket=settings.R2_BUCKET_NAME,
-            Key=key,
+            Key=stored_path,
         )
     else:
         path = Path(stored_path)
@@ -63,7 +59,6 @@ def file_response(stored_path: str, original_name: str, mime_type: str | None):
         if settings.R2_PUBLIC_URL:
             url = f"{settings.R2_PUBLIC_URL.rstrip('/')}/{stored_path}"
             return RedirectResponse(url=url)
-        import boto3 as b3
         client = _r2_client()
         url = client.generate_presigned_url(
             "get_object",
