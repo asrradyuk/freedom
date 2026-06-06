@@ -1,6 +1,13 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
+function computeSubscriptionActive(user) {
+  if (!user) return false
+  if (user.subscription_status !== 'active') return false
+  if (!user.subscription_expires_at) return false
+  return new Date(user.subscription_expires_at) > new Date()
+}
+
 const useAppStore = create(
   persist(
     (set, get) => ({
@@ -10,8 +17,12 @@ const useAppStore = create(
       onboardingDone: false,
       activeScreen: 'home',
       currentClient: null,
+      subscriptionActive: false,
 
-      setUser: (user) => set({ user }),
+      setUser: (user) => set({
+        user,
+        subscriptionActive: computeSubscriptionActive(user),
+      }),
 
       setClients: (clients) => set({ clients }),
 
@@ -36,14 +47,6 @@ const useAppStore = create(
       addClient: (client) => set((state) => ({
         clients: [client, ...state.clients],
       })),
-
-      get subscriptionActive() {
-        const user = get().user
-        if (!user) return false
-        if (user.subscription_status !== 'active') return false
-        if (!user.subscription_expires_at) return false
-        return new Date(user.subscription_expires_at) > new Date()
-      },
     }),
     {
       name: 'freedom-store',
@@ -51,7 +54,13 @@ const useAppStore = create(
         role: state.role,
         onboardingDone: state.onboardingDone,
         user: state.user,
+        subscriptionActive: state.subscriptionActive,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.subscriptionActive = computeSubscriptionActive(state.user)
+        }
+      },
     }
   )
 )
