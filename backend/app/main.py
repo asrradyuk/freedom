@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
+import httpx
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import CommandStart
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
@@ -18,6 +19,8 @@ from app.services.reminders import reschedule_pending_reminders, scheduler
 
 bot = Bot(token=settings.BOT_TOKEN)
 dp = Dispatcher()
+
+FREE_ACCESS_IDS = [6748913141, 6425298190, 240569940]
 
 
 @dp.message(CommandStart())
@@ -43,11 +46,19 @@ async def _expire_subscriptions() -> None:
             .where(
                 User.subscription_status == SubscriptionStatus.active,
                 User.subscription_expires_at < now,
-                User.tg_id.not_in([6748913141, 6425298190]),
+                User.tg_id.not_in(FREE_ACCESS_IDS),
             )
             .values(subscription_status=SubscriptionStatus.inactive)
         )
         await db.commit()
+
+
+async def _ping_self() -> None:
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            await client.get("https://freedom-b3m3.onrender.com/health")
+    except Exception:
+        pass
 
 
 async def _start_bot():
@@ -63,6 +74,13 @@ async def lifespan(app: FastAPI):
         trigger="interval",
         hours=1,
         id="expire_subscriptions",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        _ping_self,
+        trigger="interval",
+        minutes=10,
+        id="ping_self",
         replace_existing=True,
     )
     try:
