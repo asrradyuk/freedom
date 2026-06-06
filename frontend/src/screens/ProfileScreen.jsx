@@ -9,16 +9,24 @@ import styles from './ProfileScreen.module.css'
 const BOT_USERNAME = 'freedom_call_bot'
 const API_ORIGIN = BASE_API_URL.replace('/api/v1', '')
 
-function Avatar({ avatarUrl, tgId, name, size = 88, radius = 28 }) {
+function Avatar({ avatarUrl, tgId, name, size = 88, radius = 28, onError }) {
   const [err, setErr] = useState(false)
-  const src = !err
-    ? avatarUrl
-      ? avatarUrl.startsWith('http') ? avatarUrl : `${API_ORIGIN}${avatarUrl}`
-      : tgId
-      ? `${BASE_API_URL}/profile/tg-avatar/${tgId}`
-      : null
+
+  useEffect(() => { setErr(false) }, [avatarUrl])
+
+  const handleError = () => {
+    setErr(true)
+    onError?.()
+  }
+
+  const src = !err && avatarUrl
+    ? avatarUrl.startsWith('http') ? avatarUrl : `${API_ORIGIN}${avatarUrl}`
+    : !err && tgId
+    ? `${BASE_API_URL}/profile/tg-avatar/${tgId}`
     : null
+
   const initials = (name || '?').charAt(0).toUpperCase()
+
   return (
     <div style={{
       width: size, height: size, borderRadius: radius,
@@ -27,15 +35,16 @@ function Avatar({ avatarUrl, tgId, name, size = 88, radius = 28 }) {
       fontSize: size * 0.38, fontWeight: 700, color: 'var(--blue-dark)',
       fontFamily: 'var(--font-display)', flexShrink: 0, position: 'relative',
     }}>
-      {src && (
-        <img
-          src={src}
-          alt={name}
-          onError={() => setErr(true)}
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-        />
-      )}
-      <span style={{ position: 'relative', zIndex: 1 }}>{initials}</span>
+      {src
+        ? <img
+            src={src}
+            alt={name}
+            onError={handleError}
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+        : <span style={{ position: 'relative', zIndex: 1 }}>{initials}</span>
+      }
+      {!src && <span style={{ position: 'relative', zIndex: 1 }}>{initials}</span>}
     </div>
   )
 }
@@ -52,6 +61,15 @@ export function ProfileScreen() {
   useEffect(() => {
     setDisplayName(user?.display_name || user?.first_name || '')
   }, [user])
+
+  const handleAvatarError = async () => {
+    if (user?.avatar_url && user.avatar_url.startsWith('/api/v1/profile/avatar/')) {
+      try {
+        const res = await api.delete('/profile/avatar')
+        setUser(res.data)
+      } catch {}
+    }
+  }
 
   const handleSave = async () => {
     if (!displayName.trim()) return
@@ -120,6 +138,7 @@ export function ProfileScreen() {
               name={user?.display_name || user?.first_name}
               size={88}
               radius={28}
+              onError={handleAvatarError}
             />
             <div className={styles.avatarOverlay}>
               <span>{uploadingAvatar ? '⏳' : '📷'}</span>
