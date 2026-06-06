@@ -3,11 +3,42 @@ import { useAppStore } from '../store'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Card } from '../components/ui/Card'
-import { AvatarCircle } from '../components/ui/AvatarCircle'
-import api from '../api'
+import api, { BASE_API_URL } from '../api'
 import styles from './ProfileScreen.module.css'
 
 const BOT_USERNAME = 'freedom_call_bot'
+const API_ORIGIN = BASE_API_URL.replace('/api/v1', '')
+
+function Avatar({ avatarUrl, tgId, name, size = 88, radius = 28 }) {
+  const [err, setErr] = useState(false)
+  const src = !err
+    ? avatarUrl
+      ? avatarUrl.startsWith('http') ? avatarUrl : `${API_ORIGIN}${avatarUrl}`
+      : tgId
+      ? `${BASE_API_URL}/profile/tg-avatar/${tgId}`
+      : null
+    : null
+  const initials = (name || '?').charAt(0).toUpperCase()
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: radius,
+      background: 'var(--blue-light)', overflow: 'hidden',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: size * 0.38, fontWeight: 700, color: 'var(--blue-dark)',
+      fontFamily: 'var(--font-display)', flexShrink: 0, position: 'relative',
+    }}>
+      {src && (
+        <img
+          src={src}
+          alt={name}
+          onError={() => setErr(true)}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+        />
+      )}
+      <span style={{ position: 'relative', zIndex: 1 }}>{initials}</span>
+    </div>
+  )
+}
 
 export function ProfileScreen() {
   const { user, setUser, setActiveScreen, subscriptionActive, setRole, clients } = useAppStore()
@@ -83,7 +114,7 @@ export function ProfileScreen() {
       <div className="screen-content">
         <div className={styles.hero}>
           <div className={styles.avatarWrap} onClick={() => !uploadingAvatar && fileRef.current?.click()}>
-            <AvatarCircle
+            <Avatar
               avatarUrl={user?.avatar_url}
               tgId={user?.tg_id}
               name={user?.display_name || user?.first_name}
