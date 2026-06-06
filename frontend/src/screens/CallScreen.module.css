@@ -13,7 +13,6 @@
   overflow: hidden;
 }
 
-/* ── Видео зона — строго ограничена ── */
 .videoArea {
   flex: 1;
   position: relative;
@@ -22,7 +21,6 @@
   min-height: 0;
 }
 
-/* Основное видео */
 .mainVideo {
   position: absolute;
   inset: 0;
@@ -36,7 +34,6 @@
   background: #000;
 }
 
-/* Ожидание */
 .waitingState {
   width: 100%;
   height: 100%;
@@ -66,7 +63,6 @@
   margin: 0;
 }
 
-/* PiP — второй участник */
 .pip {
   position: absolute;
   top: 12px;
@@ -87,7 +83,6 @@
   display: block;
 }
 
-/* Локальное видео — правый нижний угол */
 .localWrap {
   position: absolute;
   bottom: 12px;
@@ -134,7 +129,6 @@
   text-shadow: 0 1px 3px rgba(0,0,0,0.9);
 }
 
-/* ── Чат ── */
 .chatPanel {
   position: fixed;
   right: 0; top: 0; bottom: 0;
@@ -204,40 +198,12 @@
   color: #fff; font-size: 16px; cursor: pointer;
 }
 
-/* ── Контролы ── */
 .controls {
   background: rgba(10,10,10,0.97);
-  padding: 10px 16px calc(16px + env(safe-area-inset-bottom, 0px));
-  display: flex; flex-direction: column; gap: 10px;
+  padding: 14px 16px calc(20px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid rgba(255,255,255,0.06);
   flex-shrink: 0;
 }
-
-.soundRow {
-  display: flex; align-items: center;
-  justify-content: space-between; padding: 0 2px;
-}
-
-.soundLabel { font-size: 13px; color: rgba(255,255,255,0.45); }
-
-.toggle {
-  width: 40px; height: 24px;
-  border-radius: 12px;
-  background: rgba(255,255,255,0.18);
-  border: none; cursor: pointer;
-  position: relative; transition: background 0.2s;
-  padding: 0; flex-shrink: 0;
-}
-.toggle:disabled { opacity: 0.5; }
-.toggleOn { background: #34c759; }
-.toggleThumb {
-  position: absolute;
-  left: 3px; top: 3px;
-  width: 18px; height: 18px;
-  border-radius: 50%; background: #fff;
-  transition: transform 0.2s; display: block;
-}
-.toggleOn .toggleThumb { transform: translateX(16px); }
 
 .btnRow {
   display: flex;
@@ -262,7 +228,6 @@
 .ctrlLabel { font-size: 10px; color: rgba(255,255,255,0.5); white-space: nowrap; }
 .ctrlDanger .ctrlLabel { color: rgba(255,255,255,0.85); }
 
-/* ── Загрузка/ошибка ── */
 .centerState {
   flex: 1; display: flex; flex-direction: column;
   align-items: center; justify-content: center; gap: 12px;

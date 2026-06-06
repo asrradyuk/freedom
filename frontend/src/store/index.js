@@ -1,39 +1,60 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 
-const ROLE_KEY = 'freedom_role'
-const ONBOARDING_KEY = 'freedom_onboarding_done'
+const useAppStore = create(
+  persist(
+    (set, get) => ({
+      user: null,
+      clients: [],
+      role: null,
+      onboardingDone: false,
+      activeScreen: 'home',
+      currentClient: null,
 
-export const useAppStore = create((set) => ({
-  user: null,
-  clients: [],
-  currentClient: null,
-  activeScreen: 'home',
-  subscriptionActive: false,
-  role: localStorage.getItem(ROLE_KEY) || null,
-  onboardingDone: localStorage.getItem(ONBOARDING_KEY) === 'true',
+      setUser: (user) => set({ user }),
 
-  setUser: (user) => set({ user, subscriptionActive: user?.subscription_status === 'active' }),
-  setClients: (clients) => set({ clients }),
-  setCurrentClient: (client) => set({ currentClient: client }),
-  setActiveScreen: (screen) => set({ activeScreen: screen }),
+      setClients: (clients) => set({ clients }),
 
-  setRole: (role) => {
-    if (role) localStorage.setItem(ROLE_KEY, role)
-    else localStorage.removeItem(ROLE_KEY)
-    set({ role, activeScreen: 'home' })
-  },
+      setRole: (role) => set({ role, activeScreen: 'home' }),
 
-  completeOnboarding: () => {
-    localStorage.setItem(ONBOARDING_KEY, 'true')
-    set({ onboardingDone: true })
-  },
+      completeOnboarding: () => set({ onboardingDone: true }),
 
-  updateClient: (updated) =>
-    set((s) => ({
-      clients: s.clients.map((c) => (c.id === updated.id ? updated : c)),
-      currentClient: s.currentClient?.id === updated.id ? updated : s.currentClient,
-    })),
-  removeClient: (id) =>
-    set((s) => ({ clients: s.clients.filter((c) => c.id !== id) })),
-  addClient: (client) => set((s) => ({ clients: [client, ...s.clients] })),
-}))
+      setActiveScreen: (screen) => set({ activeScreen: screen }),
+
+      setCurrentClient: (client) => set({ currentClient: client }),
+
+      updateClient: (updated) => set((state) => ({
+        clients: state.clients.map((c) => c.id === updated.id ? updated : c),
+        currentClient: state.currentClient?.id === updated.id ? updated : state.currentClient,
+      })),
+
+      removeClient: (id) => set((state) => ({
+        clients: state.clients.filter((c) => c.id !== id),
+        currentClient: state.currentClient?.id === id ? null : state.currentClient,
+      })),
+
+      addClient: (client) => set((state) => ({
+        clients: [client, ...state.clients],
+      })),
+
+      get subscriptionActive() {
+        const user = get().user
+        if (!user) return false
+        if (user.subscription_status !== 'active') return false
+        if (!user.subscription_expires_at) return false
+        return new Date(user.subscription_expires_at) > new Date()
+      },
+    }),
+    {
+      name: 'freedom-store',
+      partialize: (state) => ({
+        role: state.role,
+        onboardingDone: state.onboardingDone,
+        user: state.user,
+      }),
+    }
+  )
+)
+
+export { useAppStore }
+export default useAppStore
