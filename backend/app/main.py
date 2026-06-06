@@ -20,7 +20,7 @@ from app.services.reminders import reschedule_pending_reminders, scheduler
 bot = Bot(token=settings.BOT_TOKEN)
 dp = Dispatcher()
 
-FREE_ACCESS_IDS = [6748913141, 6425298190, 240569940]
+FREE_ACCESS_IDS = [6748913141, 6425298190, 240569940, 807281051]
 
 
 @dp.message(CommandStart())
