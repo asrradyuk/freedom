@@ -11,9 +11,10 @@ from app.core.deps import get_current_user
 from app.db.session import get_db
 from app.models.models import User
 from app.schemas.schemas import UserOut, UserUpdate
-from app.services.storage import delete_file, save_file, file_response
 
 router = APIRouter()
+
+UPLOAD_DIR = Path(settings.UPLOAD_DIR)
 
 
 @router.get("/", response_model=UserOut)
@@ -44,35 +45,46 @@ async def upload_avatar(
     if len(content) > 5 * 1024 * 1024:
         raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Max 5MB")
 
+    avatar_dir = UPLOAD_DIR / "avatars"
+    avatar_dir.mkdir(parents=True, exist_ok=True)
+
     ext = Path(file.filename or "avatar.jpg").suffix or ".jpg"
-    key = f"avatars/{uuid.uuid4()}{ext}"
+    filename = f"{uuid.uuid4()}{ext}"
+    path = avatar_dir / filename
 
-    old_url = user.avatar_url
-    stored = await save_file(content, key, file.content_type)
+    async with aiofiles.open(path, "wb") as f:
+        await f.write(content)
 
-    if settings.r2_enabled and settings.R2_PUBLIC_URL:
-        user.avatar_url = f"{settings.R2_PUBLIC_URL.rstrip('/')}/{key}"
-    elif settings.r2_enabled:
-        user.avatar_url = f"/api/v1/profile/avatar-file/{key}"
-    else:
-        user.avatar_url = f"/api/v1/profile/avatar-file/{key}"
-
+    user.avatar_url = f"/api/v1/profile/avatar/{filename}"
     await db.commit()
     await db.refresh(user)
-
-    if old_url and "/api/v1/profile/avatar-file/" in (old_url or ""):
-        old_key = old_url.split("/api/v1/profile/avatar-file/")[-1]
-        try:
-            await delete_file(old_key if settings.r2_enabled else str(Path(settings.UPLOAD_DIR) / old_key))
-        except Exception:
-            pass
-
     return user
 
 
-@router.get("/avatar-file/{file_path:path}")
-async def get_avatar_file(file_path: str):
-    return file_response(file_path, file_path.split("/")[-1], "image/jpeg")
+@router.get("/avatar/{filename}")
+async def get_avatar(filename: str):
+    from fastapi.responses import FileResponse
+    path = UPLOAD_DIR / "avatars" / filename
+    if not path.exists():
+        user_tg_id = None
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Avatar not found")
+    return FileResponse(path)
+
+
+@router.delete("/avatar", response_model=UserOut)
+async def delete_avatar(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if user.avatar_url and user.avatar_url.startswith("/api/v1/profile/avatar/"):
+        filename = user.avatar_url.split("/")[-1]
+        path = UPLOAD_DIR / "avatars" / filename
+        if path.exists():
+            path.unlink()
+    user.avatar_url = None
+    await db.commit()
+    await db.refresh(user)
+    return user
 
 
 @router.get("/tg-avatar/{tg_id}")
