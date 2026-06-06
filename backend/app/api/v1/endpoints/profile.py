@@ -3,7 +3,7 @@ from pathlib import Path
 
 import aiofiles
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -63,10 +63,8 @@ async def upload_avatar(
 
 @router.get("/avatar/{filename}")
 async def get_avatar(filename: str):
-    from fastapi.responses import FileResponse
     path = UPLOAD_DIR / "avatars" / filename
     if not path.exists():
-        user_tg_id = None
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Avatar not found")
     return FileResponse(path)
 
