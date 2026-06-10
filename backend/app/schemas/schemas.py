@@ -18,6 +18,7 @@ class UserOut(BaseModel):
     avatar_url: str | None
     subscription_status: SubscriptionStatus
     subscription_expires_at: datetime | None
+    created_at: datetime
 
     model_config = {"from_attributes": True}
 
