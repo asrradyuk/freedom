@@ -44,7 +44,6 @@ function Avatar({ avatarUrl, tgId, name, size = 88, radius = 28, onError }) {
           />
         : <span style={{ position: 'relative', zIndex: 1 }}>{initials}</span>
       }
-      {!src && <span style={{ position: 'relative', zIndex: 1 }}>{initials}</span>}
     </div>
   )
 }

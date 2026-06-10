@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { clientsApi } from '../api'
+import { clientsApi, BASE_API_URL } from '../api'
 import { useAppStore } from '../store'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
@@ -7,16 +7,16 @@ import { BottomSheet } from '../components/ui/BottomSheet'
 import { Input, Textarea } from '../components/ui/Input'
 import styles from './ClientsScreen.module.css'
 
-const BASE_URL = 'https://freedom-b3m3.onrender.com'
+const API_ORIGIN = BASE_API_URL.replace('/api/v1', '')
 
 function ClientAvatar({ client, size = 44 }) {
   const [error, setError] = useState(false)
   const src = client.avatar_url
     ? client.avatar_url.startsWith('http')
       ? client.avatar_url
-      : `${BASE_URL}${client.avatar_url}`
+      : `${API_ORIGIN}${client.avatar_url}`
     : client.client_tg_id
-    ? `${BASE_URL}/api/v1/profile/tg-avatar/${client.client_tg_id}`
+    ? `${BASE_API_URL}/profile/tg-avatar/${client.client_tg_id}`
     : null
 
   const initials = client.name.charAt(0).toUpperCase()
@@ -28,10 +28,7 @@ function ClientAvatar({ client, size = 44 }) {
         src={src}
         alt={client.name}
         onError={() => setError(true)}
-        style={{
-          width: size, height: size, borderRadius: radius,
-          objectFit: 'cover', flexShrink: 0,
-        }}
+        style={{ width: size, height: size, borderRadius: radius, objectFit: 'cover', flexShrink: 0 }}
       />
     )
   }
@@ -87,8 +84,10 @@ export function ClientsScreen() {
       setSheetOpen(false)
       setForm({ name: '', note: '' })
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success')
-    } catch {
-      setError('Не удалось создать клиента')
+    } catch (e) {
+      const msg = e?.response?.data?.detail
+      setError(msg === 'Subscription required' ? 'Нужна подписка для создания клиентов' : 'Не удалось создать клиента')
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')
     } finally {
       setLoading(false)
     }
@@ -142,7 +141,7 @@ export function ClientsScreen() {
         )}
       </div>
 
-      <BottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)} title="Новый клиент">
+      <BottomSheet open={sheetOpen} onClose={() => { setSheetOpen(false); setError('') }} title="Новый клиент">
         <Input label="Имя" placeholder="Анна Смирнова" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
         <Textarea label="Заметка" placeholder="Например: занимается английским, уровень B1" value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} />
         {error && <p className={styles.error}>{error}</p>}
