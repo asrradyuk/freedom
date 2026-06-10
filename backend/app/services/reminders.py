@@ -12,38 +12,32 @@ from app.models.models import Client, Reminder, ReminderType, Session
 
 scheduler = AsyncIOScheduler(timezone="UTC")
 
-_OFFSET_BY_TYPE = {
-    ReminderType.client_24h: timedelta(hours=24),
-    ReminderType.client_1h: timedelta(hours=1),
-    ReminderType.specialist_1h: timedelta(hours=1),
-}
-
 _JOB_ID_24H = "reminder_24h_{}"
 _JOB_ID_1H = "reminder_1h_{}"
+_JOB_ID_SPEC = "reminder_spec_1h_{}"
 
 
 async def _send_reminder(session_id: str, reminder_type_value: str) -> None:
     reminder_type = ReminderType(reminder_type_value)
+    bot = Bot(token=settings.BOT_TOKEN)
 
-    async with async_session_factory() as db:
-        result = await db.execute(
-            select(Session)
-            .options(selectinload(Session.client).selectinload(Client.specialist))
-            .where(Session.id == session_id)
-        )
-        session = result.scalar_one_or_none()
-        if not session:
-            return
+    try:
+        async with async_session_factory() as db:
+            result = await db.execute(
+                select(Session)
+                .options(selectinload(Session.client).selectinload(Client.specialist))
+                .where(Session.id == session_id)
+            )
+            session = result.scalar_one_or_none()
+            if not session:
+                return
 
-        client = session.client
-        specialist = client.specialist
-        bot = Bot(token=settings.BOT_TOKEN)
+            client = session.client
+            specialist = client.specialist
+            meeting_url = client.meeting_url or ""
+            reminder_text = client.reminder_text or "Напоминание о занятии"
+            time_str = session.scheduled_at.strftime("%d.%m.%Y %H:%M")
 
-        meeting_url = client.meeting_url or ""
-        reminder_text = client.reminder_text or "Напоминание о занятии"
-        time_str = session.scheduled_at.strftime("%d.%m.%Y %H:%M")
-
-        try:
             if reminder_type == ReminderType.specialist_1h:
                 buttons = []
                 if meeting_url:
@@ -65,21 +59,22 @@ async def _send_reminder(session_id: str, reminder_type_value: str) -> None:
                         text=f"🔔 {reminder_text}\n\nВремя занятия: {time_str}",
                         reply_markup=kb,
                     )
-        except Exception:
-            pass
-        finally:
-            await bot.session.close()
 
-        rem_result = await db.execute(
-            select(Reminder).where(
-                Reminder.session_id == session.id,
-                Reminder.reminder_type == reminder_type,
+            rem_result = await db.execute(
+                select(Reminder).where(
+                    Reminder.session_id == session.id,
+                    Reminder.reminder_type == reminder_type,
+                )
             )
-        )
-        reminder = rem_result.scalar_one_or_none()
-        if reminder:
-            reminder.sent = True
-        await db.commit()
+            reminder = rem_result.scalar_one_or_none()
+            if reminder:
+                reminder.sent = True
+            await db.commit()
+
+    except Exception:
+        pass
+    finally:
+        await bot.session.close()
 
 
 def schedule_session_reminders(session_id: str, scheduled_at: datetime) -> None:
@@ -88,7 +83,7 @@ def schedule_session_reminders(session_id: str, scheduled_at: datetime) -> None:
     jobs = [
         (_JOB_ID_24H.format(session_id), scheduled_at - timedelta(hours=24), ReminderType.client_24h),
         (_JOB_ID_1H.format(session_id), scheduled_at - timedelta(hours=1), ReminderType.client_1h),
-        (f"reminder_spec_1h_{session_id}", scheduled_at - timedelta(hours=1), ReminderType.specialist_1h),
+        (_JOB_ID_SPEC.format(session_id), scheduled_at - timedelta(hours=1), ReminderType.specialist_1h),
     ]
 
     for job_id, run_date, reminder_type in jobs:
@@ -107,7 +102,7 @@ def cancel_session_reminders(session_id: str) -> None:
     for job_id in (
         _JOB_ID_24H.format(session_id),
         _JOB_ID_1H.format(session_id),
-        f"reminder_spec_1h_{session_id}",
+        _JOB_ID_SPEC.format(session_id),
     ):
         try:
             scheduler.remove_job(job_id)
