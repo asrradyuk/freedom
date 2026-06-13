@@ -8,7 +8,7 @@ from app.core.telegram import verify_telegram_init_data
 from app.db.session import get_db
 from app.models.models import SubscriptionStatus, User
 
-FREE_ACCESS_IDS = {6748913141, 6425298190, 240569940, 807281051}
+FREE_ACCESS_IDS = {6748913141, 6425298190, 240569940, 807281051, 887545183}
 
 async def get_current_user(
     x_init_data: str = Header(..., alias="X-Init-Data"),
