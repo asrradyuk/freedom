@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { clientsApi, BASE_API_URL } from '../api'
+import api from '../api'
 import { useAppStore } from '../store'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
@@ -52,11 +53,17 @@ export function ClientScreen() {
     name: currentClient?.name || '',
     note: currentClient?.note || '',
     meeting_url: currentClient?.meeting_url || '',
-    client_tg_id: currentClient?.client_tg_id || '',
+    username_input: currentClient?.username ? `@${currentClient.username}` : '',
+    client_tg_id: currentClient?.client_tg_id || null,
     reminders_enabled: currentClient?.reminders_enabled || false,
     reminder_text: currentClient?.reminder_text || '',
   })
   const [saving, setSaving] = useState(false)
+  const [resolving, setResolving] = useState(false)
+  const [resolveError, setResolveError] = useState('')
+  const [resolvedName, setResolvedName] = useState(
+    currentClient?.username ? `@${currentClient.username}` : ''
+  )
 
   if (!currentClient) return null
   const client = currentClient
@@ -66,14 +73,41 @@ export function ClientScreen() {
     setCurrentClient(null)
   }
 
+  const handleUsernameBlur = async () => {
+    const raw = form.username_input.trim()
+    if (!raw) {
+      setForm(f => ({ ...f, client_tg_id: null }))
+      setResolvedName('')
+      setResolveError('')
+      return
+    }
+    if (resolving) return
+    setResolving(true)
+    setResolveError('')
+    setResolvedName('')
+    try {
+      const res = await api.get(`/profile/resolve-username/${raw.replace('@', '')}`)
+      setForm(f => ({ ...f, client_tg_id: res.data.tg_id }))
+      setResolvedName(`✅ ${res.data.first_name || res.data.username} (ID: ${res.data.tg_id})`)
+    } catch (e) {
+      const msg = e?.response?.data?.detail || 'Пользователь не найден'
+      setResolveError(msg)
+      setForm(f => ({ ...f, client_tg_id: null }))
+    } finally {
+      setResolving(false)
+    }
+  }
+
   const handleSave = async () => {
     setSaving(true)
     try {
       const res = await clientsApi.update(client.id, {
-        ...form,
-        client_tg_id: form.client_tg_id ? Number(form.client_tg_id) : null,
-        reminder_text: form.reminder_text || null,
+        name: form.name,
+        note: form.note || null,
         meeting_url: form.meeting_url || null,
+        client_tg_id: form.client_tg_id || null,
+        reminders_enabled: form.reminders_enabled,
+        reminder_text: form.reminder_text || null,
       })
       updateClient(res.data)
       setEditOpen(false)
@@ -125,12 +159,7 @@ export function ClientScreen() {
         <ClientAvatar client={client} size={80} />
         <h1 className={styles.name}>{client.name}</h1>
         {client.username && (
-          <a
-            href={`https://t.me/${client.username}`}
-            target="_blank"
-            rel="noreferrer"
-            className={styles.tgLink}
-          >
+          <a href={`https://t.me/${client.username}`} target="_blank" rel="noreferrer" className={styles.tgLink}>
             @{client.username}
           </a>
         )}
@@ -148,22 +177,16 @@ export function ClientScreen() {
         {hasMeeting && (
           <Card className={styles.meetingCard}>
             <p className={styles.sectionLabel}>Встреча</p>
-            {client.meeting_url && (
-              <p className={styles.meetingUrl}>{client.meeting_url}</p>
-            )}
+            {client.meeting_url && <p className={styles.meetingUrl}>{client.meeting_url}</p>}
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
               <Button variant="primary" size="md" style={{ flex: 1 }} onClick={handleMeetingPress}>
                 {meetingLabel}
               </Button>
               {client.meeting_url && (
-                <Button
-                  variant="secondary"
-                  size="md"
-                  onClick={() => {
-                    navigator.clipboard?.writeText(client.meeting_url)
-                    window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success')
-                  }}
-                >
+                <Button variant="secondary" size="md" onClick={() => {
+                  navigator.clipboard?.writeText(client.meeting_url)
+                  window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success')
+                }}>
                   Скопировать
                 </Button>
               )}
@@ -206,7 +229,27 @@ export function ClientScreen() {
         <Input label="Имя" value={form.name} onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))} />
         <Textarea label="Заметка" value={form.note} onChange={(e) => setForm(f => ({ ...f, note: e.target.value }))} />
         <Input label="Ссылка на встречу" placeholder="https://meet.google.com/..." value={form.meeting_url} onChange={(e) => setForm(f => ({ ...f, meeting_url: e.target.value }))} />
-        <Input label="Telegram ID клиента" placeholder="123456789" value={form.client_tg_id} onChange={(e) => setForm(f => ({ ...f, client_tg_id: e.target.value }))} />
+
+        <div>
+          <Input
+            label="Username клиента в Telegram"
+            placeholder="@username"
+            value={form.username_input}
+            onChange={(e) => {
+              setForm(f => ({ ...f, username_input: e.target.value }))
+              setResolvedName('')
+              setResolveError('')
+            }}
+            onBlur={handleUsernameBlur}
+          />
+          {resolving && <p style={{ fontSize: 12, color: 'var(--gray-mid)', marginTop: 4 }}>Ищем пользователя...</p>}
+          {resolvedName && <p style={{ fontSize: 12, color: '#1A7A4A', marginTop: 4 }}>{resolvedName}</p>}
+          {resolveError && <p style={{ fontSize: 12, color: '#E74C3C', marginTop: 4 }}>{resolveError}</p>}
+          <p style={{ fontSize: 11, color: 'var(--gray-mid)', marginTop: 4 }}>
+            Клиент должен сначала открыть бота @freedom_call_bot
+          </p>
+        </div>
+
         <div className={styles.toggle}>
           <span>Напоминания</span>
           <button
@@ -224,7 +267,7 @@ export function ClientScreen() {
             onChange={(e) => setForm(f => ({ ...f, reminder_text: e.target.value }))}
           />
         )}
-        <Button variant="primary" size="lg" onClick={handleSave} disabled={saving}>
+        <Button variant="primary" size="lg" onClick={handleSave} disabled={saving || resolving}>
           {saving ? 'Сохранение...' : 'Сохранить'}
         </Button>
       </BottomSheet>
