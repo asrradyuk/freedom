@@ -89,7 +89,7 @@ async def download_material(
     material = result.scalar_one_or_none()
     if not material:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found")
-    return file_response(material.filename, material.original_name, material.mime_type)
+    return await file_response(material.filename, material.original_name, material.mime_type)
 
 
 @router.get("/{material_id}/client-download")
@@ -112,7 +112,7 @@ async def client_download_material(
     material = result.scalar_one_or_none()
     if not material:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found")
-    return file_response(material.filename, material.original_name, material.mime_type)
+    return await file_response(material.filename, material.original_name, material.mime_type)
 
 
 @router.delete("/{material_id}", status_code=status.HTTP_204_NO_CONTENT)
