@@ -4,6 +4,7 @@ from pathlib import Path
 import aiofiles
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse, Response
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -83,6 +84,29 @@ async def delete_avatar(
     await db.commit()
     await db.refresh(user)
     return user
+
+
+@router.get("/resolve-username/{username}")
+async def resolve_username(
+    username: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Резолвит @username в tg_id через таблицу users (если юзер уже открывал приложение)"""
+    clean = username.lstrip("@").lower()
+
+    result = await db.execute(
+        select(User).where(User.username.ilike(clean))
+    )
+    found = result.scalar_one_or_none()
+
+    if not found:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Пользователь не найден. Попроси клиента сначала открыть бота."
+        )
+
+    return {"tg_id": found.tg_id, "username": found.username, "first_name": found.first_name}
 
 
 @router.get("/tg-avatar/{tg_id}")
