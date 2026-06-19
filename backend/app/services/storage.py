@@ -1,71 +1,47 @@
-import asyncio
-from pathlib import Path
-
-import aiofiles
-from fastapi.responses import FileResponse, RedirectResponse
+import httpx
+from fastapi import HTTPException, status
+from fastapi.responses import RedirectResponse
 
 from app.core.config import settings
 
-
-def _r2_client():
-    import boto3
-    from botocore.config import Config
-    return boto3.client(
-        "s3",
-        endpoint_url=f"https://{settings.R2_ACCOUNT_ID}.r2.cloudflarestorage.com",
-        aws_access_key_id=settings.R2_ACCESS_KEY_ID,
-        aws_secret_access_key=settings.R2_SECRET_ACCESS_KEY,
-        config=Config(signature_version="s3v4"),
-        region_name="auto",
-    )
+TG_API = f"https://api.telegram.org/bot{settings.BOT_TOKEN}"
 
 
 async def save_file(content: bytes, key: str, content_type: str | None = None) -> str:
-    if settings.r2_enabled:
-        client = _r2_client()
-        extra = {"ContentType": content_type} if content_type else {}
-        await asyncio.to_thread(
-            client.put_object,
-            Bucket=settings.R2_BUCKET_NAME,
-            Key=key,
-            Body=content,
-            **extra,
+    if not settings.STORAGE_CHAT_ID:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Storage not configured",
         )
-        return key
-    else:
-        path = Path(settings.UPLOAD_DIR) / key
-        path.parent.mkdir(parents=True, exist_ok=True)
-        async with aiofiles.open(path, "wb") as f:
-            await f.write(content)
-        return str(path)
+
+    filename = key.rsplit("/", 1)[-1]
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        resp = await client.post(
+            f"{TG_API}/sendDocument",
+            data={"chat_id": settings.STORAGE_CHAT_ID},
+            files={"document": (filename, content, content_type or "application/octet-stream")},
+        )
+        data = resp.json()
+
+    if not data.get("ok"):
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Failed to store file")
+
+    return data["result"]["document"]["file_id"]
 
 
 async def delete_file(stored_path: str) -> None:
-    if settings.r2_enabled:
-        client = _r2_client()
-        await asyncio.to_thread(
-            client.delete_object,
-            Bucket=settings.R2_BUCKET_NAME,
-            Key=stored_path,
-        )
-    else:
-        path = Path(stored_path)
-        if path.exists():
-            path.unlink()
+    pass
 
 
-def file_response(stored_path: str, original_name: str, mime_type: str | None):
-    if settings.r2_enabled:
-        if settings.R2_PUBLIC_URL:
-            url = f"{settings.R2_PUBLIC_URL.rstrip('/')}/{stored_path}"
-            return RedirectResponse(url=url)
-        client = _r2_client()
-        url = client.generate_presigned_url(
-            "get_object",
-            Params={"Bucket": settings.R2_BUCKET_NAME, "Key": stored_path},
-            ExpiresIn=3600,
-        )
-        return RedirectResponse(url=url)
-    else:
-        path = Path(stored_path)
-        return FileResponse(path=path, filename=original_name, media_type=mime_type)
+async def file_response(stored_path: str, original_name: str, mime_type: str | None):
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.get(f"{TG_API}/getFile", params={"file_id": stored_path})
+        data = resp.json()
+
+    if not data.get("ok"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+
+    file_path = data["result"]["file_path"]
+    url = f"https://api.telegram.org/file/bot{settings.BOT_TOKEN}/{file_path}"
+    return RedirectResponse(url=url)
