@@ -28,6 +28,7 @@ export function MaterialsScreen() {
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [deletingId, setDeletingId] = useState(null)
+  const [openingId, setOpeningId] = useState(null)
   const fileRef = useRef()
 
   useEffect(() => {
@@ -51,6 +52,16 @@ export function MaterialsScreen() {
       setUploading(false)
       e.target.value = ''
     }
+  }
+
+  const handleOpen = (material) => {
+    if (openingId) return
+    setOpeningId(material.id)
+    const url = materialsApi.downloadUrl(currentClient.id, material.id)
+    window.Telegram?.WebApp?.openLink
+      ? window.Telegram.WebApp.openLink(url)
+      : window.open(url, '_blank')
+    setTimeout(() => setOpeningId(null), 600)
   }
 
   const handleDelete = async (material) => {
@@ -103,27 +114,22 @@ export function MaterialsScreen() {
         ) : (
           <div className={styles.list}>
             {materials.map((m, i) => (
-              <Card key={m.id} className={styles.card} style={{ animationDelay: `${i * 0.04}s`, opacity: deletingId === m.id ? 0.4 : 1 }}>
+              <Card
+                key={m.id}
+                className={styles.card}
+                style={{ animationDelay: `${i * 0.04}s`, opacity: deletingId === m.id ? 0.4 : 1 }}
+                onClick={() => handleOpen(m)}
+              >
                 <span className={styles.icon}>{fileIcon(m.mime_type)}</span>
                 <div className={styles.info}>
                   <p className={styles.filename}>{m.original_name}</p>
                   <p className={styles.meta}>{formatSize(m.file_size)}</p>
                 </div>
                 <div className={styles.actions}>
-                  <a
-                    href={materialsApi.downloadUrl(currentClient.id, m.id)}
-                    className={styles.downloadBtn}
-                    download={m.original_name}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                      <polyline points="7 10 12 15 17 10"/>
-                      <line x1="12" y1="15" x2="12" y2="3"/>
-                    </svg>
-                  </a>
+                  <span className={styles.openHint}>{openingId === m.id ? '...' : '↗'}</span>
                   <button
                     className={styles.delBtn}
-                    onClick={() => handleDelete(m)}
+                    onClick={(e) => { e.stopPropagation(); handleDelete(m) }}
                     disabled={!!deletingId}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

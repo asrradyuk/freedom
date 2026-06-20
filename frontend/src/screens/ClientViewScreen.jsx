@@ -89,6 +89,7 @@ export function ClientViewScreen() {
   const [tab, setTab] = useState('sessions')
   const [callToken, setCallToken] = useState(null)
   const [joiningCall, setJoiningCall] = useState(false)
+  const [openingId, setOpeningId] = useState(null)
 
   const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user
   const myTgId = tgUser?.id
@@ -115,6 +116,16 @@ export function ClientViewScreen() {
     } finally {
       setJoiningCall(false)
     }
+  }
+
+  const handleOpenMaterial = (material) => {
+    if (openingId) return
+    setOpeningId(material.id)
+    const url = `${BASE_API_URL}/clients/${clientInfo.client_id}/materials/${material.id}/client-download?tg_id=${myTgId}`
+    window.Telegram?.WebApp?.openLink
+      ? window.Telegram.WebApp.openLink(url)
+      : window.open(url, '_blank')
+    setTimeout(() => setOpeningId(null), 600)
   }
 
   if (callToken) {
@@ -207,7 +218,7 @@ export function ClientViewScreen() {
           <div className={styles.empty}>
             <span className={styles.emptyIcon}>📅</span>
             <p className={styles.emptyTitle}>Вы не привязаны к специалисту</p>
-            <p className={styles.emptyText}>Попросите специалиста добавить ваш Telegram ID в вашу карточку</p>
+            <p className={styles.emptyText}>Попросите специалиста добавить ваш Telegram username в вашу карточку</p>
           </div>
         ) : tab === 'sessions' ? (
           Object.keys(groups).length === 0 ? (
@@ -252,19 +263,13 @@ export function ClientViewScreen() {
           ) : (
             <div className={styles.list}>
               {materials.map(m => (
-                <Card key={m.id} className={styles.materialCard}>
+                <Card key={m.id} className={styles.materialCard} onClick={() => handleOpenMaterial(m)}>
                   <span className={styles.fileIcon}>{fileIcon(m.mime_type)}</span>
                   <div className={styles.fileInfo}>
                     <p className={styles.fileName}>{m.original_name}</p>
                     <p className={styles.fileMeta}>{formatSize(m.file_size)}</p>
                   </div>
-                  <a
-                    href={`${BASE_API_URL}/clients/${clientInfo.client_id}/materials/${m.id}/client-download?tg_id=${myTgId}`}
-                    className={styles.downloadBtn}
-                    download={m.original_name}
-                  >
-                    ↓
-                  </a>
+                  <span className={styles.downloadBtn}>{openingId === m.id ? '...' : '↗'}</span>
                 </Card>
               ))}
             </div>

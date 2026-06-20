@@ -15,6 +15,7 @@ const useAppStore = create(
       clients: [],
       role: null,
       onboardingDone: false,
+      clientOnboardingDone: false,
       activeScreen: 'home',
       currentClient: null,
       subscriptionActive: false,
@@ -29,6 +30,7 @@ const useAppStore = create(
       setRole: (role) => set({ role, activeScreen: 'home' }),
 
       completeOnboarding: () => set({ onboardingDone: true }),
+      completeClientOnboarding: () => set({ clientOnboardingDone: true }),
 
       setActiveScreen: (screen) => set({ activeScreen: screen }),
 
@@ -53,6 +55,7 @@ const useAppStore = create(
       partialize: (state) => ({
         role: state.role,
         onboardingDone: state.onboardingDone,
+        clientOnboardingDone: state.clientOnboardingDone,
         user: state.user,
         subscriptionActive: state.subscriptionActive,
       }),
