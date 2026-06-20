@@ -10,7 +10,7 @@ from app.core.deps import get_current_user
 from app.db.session import get_db
 from app.models.models import Client, Material, SubscriptionStatus, User
 from app.schemas.schemas import MaterialOut
-from app.services.storage import delete_file, file_response, save_file
+from app.services.storage import delete_file, file_response, get_direct_url, save_file
 
 router = APIRouter()
 
@@ -73,6 +73,50 @@ async def upload_material(
     await db.commit()
     await db.refresh(material)
     return material
+
+
+@router.get("/{material_id}/download-url")
+async def get_download_url(
+    client_id: uuid.UUID,
+    material_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Возвращает прямую ссылку на файл (JSON), чтобы фронт мог открыть её через openLink
+    без передачи авторизационных заголовков (внешний браузер их не отправляет)."""
+    await _get_client_or_404(client_id, user, db)
+    result = await db.execute(
+        select(Material).where(Material.id == material_id, Material.client_id == client_id)
+    )
+    material = result.scalar_one_or_none()
+    if not material:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found")
+    url = await get_direct_url(material.filename)
+    return {"url": url}
+
+
+@router.get("/{material_id}/client-download-url")
+async def get_client_download_url(
+    client_id: uuid.UUID,
+    material_id: uuid.UUID,
+    tg_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    client_result = await db.execute(
+        select(Client).where(Client.id == client_id, Client.client_tg_id == tg_id)
+    )
+    client = client_result.scalar_one_or_none()
+    if not client:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+    result = await db.execute(
+        select(Material).where(Material.id == material_id, Material.client_id == client_id)
+    )
+    material = result.scalar_one_or_none()
+    if not material:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found")
+    url = await get_direct_url(material.filename)
+    return {"url": url}
 
 
 @router.get("/{material_id}/download")
