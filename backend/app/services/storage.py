@@ -34,7 +34,7 @@ async def delete_file(stored_path: str) -> None:
     pass
 
 
-async def file_response(stored_path: str, original_name: str, mime_type: str | None):
+async def get_direct_url(stored_path: str) -> str:
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.get(f"{TG_API}/getFile", params={"file_id": stored_path})
         data = resp.json()
@@ -43,5 +43,9 @@ async def file_response(stored_path: str, original_name: str, mime_type: str | N
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
 
     file_path = data["result"]["file_path"]
-    url = f"https://api.telegram.org/file/bot{settings.BOT_TOKEN}/{file_path}"
+    return f"https://api.telegram.org/file/bot{settings.BOT_TOKEN}/{file_path}"
+
+
+async def file_response(stored_path: str, original_name: str, mime_type: str | None):
+    url = await get_direct_url(stored_path)
     return RedirectResponse(url=url)
