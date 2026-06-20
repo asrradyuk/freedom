@@ -36,8 +36,8 @@ export const materialsApi = {
     form.append('file', file)
     return api.post(`/clients/${clientId}/materials/`, form)
   },
-  downloadUrl: (clientId, materialId) =>
-    `${BASE_URL}/clients/${clientId}/materials/${materialId}/download`,
+  getDownloadUrl: (clientId, materialId) =>
+    api.get(`/clients/${clientId}/materials/${materialId}/download-url`),
   delete: (clientId, id) => api.delete(`/clients/${clientId}/materials/${id}`),
 }
 

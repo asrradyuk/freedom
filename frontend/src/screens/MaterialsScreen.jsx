@@ -54,14 +54,20 @@ export function MaterialsScreen() {
     }
   }
 
-  const handleOpen = (material) => {
+  const handleOpen = async (material) => {
     if (openingId) return
     setOpeningId(material.id)
-    const url = materialsApi.downloadUrl(currentClient.id, material.id)
-    window.Telegram?.WebApp?.openLink
-      ? window.Telegram.WebApp.openLink(url)
-      : window.open(url, '_blank')
-    setTimeout(() => setOpeningId(null), 600)
+    try {
+      const res = await materialsApi.getDownloadUrl(currentClient.id, material.id)
+      const url = res.data.url
+      window.Telegram?.WebApp?.openLink
+        ? window.Telegram.WebApp.openLink(url)
+        : window.open(url, '_blank')
+    } catch {
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')
+    } finally {
+      setOpeningId(null)
+    }
   }
 
   const handleDelete = async (material) => {

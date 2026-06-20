@@ -118,14 +118,23 @@ export function ClientViewScreen() {
     }
   }
 
-  const handleOpenMaterial = (material) => {
+  const handleOpenMaterial = async (material) => {
     if (openingId) return
     setOpeningId(material.id)
-    const url = `${BASE_API_URL}/clients/${clientInfo.client_id}/materials/${material.id}/client-download?tg_id=${myTgId}`
-    window.Telegram?.WebApp?.openLink
-      ? window.Telegram.WebApp.openLink(url)
-      : window.open(url, '_blank')
-    setTimeout(() => setOpeningId(null), 600)
+    try {
+      const res = await fetch(
+        `${BASE_API_URL}/clients/${clientInfo.client_id}/materials/${material.id}/client-download-url?tg_id=${myTgId}`
+      )
+      const data = await res.json()
+      const url = data.url
+      window.Telegram?.WebApp?.openLink
+        ? window.Telegram.WebApp.openLink(url)
+        : window.open(url, '_blank')
+    } catch {
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')
+    } finally {
+      setOpeningId(null)
+    }
   }
 
   if (callToken) {
