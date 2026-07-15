@@ -20,7 +20,7 @@ from app.services.reminders import reschedule_pending_reminders, scheduler
 bot = Bot(token=settings.BOT_TOKEN)
 dp = Dispatcher()
 
-FREE_ACCESS_IDS = [6748913141, 6425298190, 240569940, 807281051, 887545183, 885296246, 8770473636, 1148555111, 908989813, 992974698, 1010539891, 704916686]
+FREE_ACCESS_IDS = [6748913141, 6425298190, 240569940, 807281051, 887545183, 885296246, 8770473636, 1148555111, 908989813, 992974698, 1010539891, 704916686, 5495190630, 668418636]
 @dp.message(CommandStart())
 async def start(message: types.Message):
     kb = InlineKeyboardMarkup(inline_keyboard=[[
