@@ -263,18 +263,6 @@ function InnerCall({ onHangUp, isClient }) {
   const { chatMessages, send } = useChat()
   const { localParticipant } = useLocalParticipant()
   const [showChat, setShowChat] = useState(false)
-  const tracksPublished = useRef(false)
-
-  useEffect(() => {
-    if (!localParticipant || tracksPublished.current) return
-    tracksPublished.current = true
-    createLocalAudioTrack(AUDIO)
-      .then(t => localParticipant.publishTrack(t, { source: Track.Source.Microphone }))
-      .catch(() => {})
-    createLocalVideoTrack()
-      .then(t => localParticipant.publishTrack(t, { source: Track.Source.Camera }))
-      .catch(() => {})
-  }, [localParticipant])
 
   return (
     <div className={styles.callWrap}>
@@ -325,8 +313,13 @@ export function CallScreen() {
   }
 
   return (
-    <LiveKitRoom token={roomData.token} serverUrl={roomData.url} connect audio={false} video={false}
-      onDisconnected={() => setActiveScreen('client')} style={{ height: '100dvh' }}>
+    <LiveKitRoom
+      token={roomData.token}
+      serverUrl={roomData.url}
+      connect
+      onDisconnected={() => setActiveScreen('client')}
+      style={{ height: '100dvh' }}
+    >
       <InnerCall onHangUp={() => setActiveScreen('client')} isClient={false} />
     </LiveKitRoom>
   )
@@ -334,8 +327,13 @@ export function CallScreen() {
 
 export function ClientCallScreen({ token, url, onLeave }) {
   return (
-    <LiveKitRoom token={token} serverUrl={url} connect audio={false} video={false}
-      onDisconnected={onLeave} style={{ height: '100dvh' }}>
+    <LiveKitRoom
+      token={token}
+      serverUrl={url}
+      connect
+      onDisconnected={onLeave}
+      style={{ height: '100dvh' }}
+    >
       <InnerCall onHangUp={onLeave} isClient={true} />
     </LiveKitRoom>
   )
