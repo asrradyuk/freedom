@@ -132,7 +132,9 @@ export function ClientScreen() {
 
   const handleMeetingPress = () => {
     if (client.meeting_url) {
-      window.open(client.meeting_url, '_blank')
+      window.Telegram?.WebApp?.openLink
+        ? window.Telegram.WebApp.openLink(client.meeting_url)
+        : window.open(client.meeting_url, '_blank')
     } else if (subscriptionActive && client.livekit_room) {
       setActiveScreen('call')
     }

@@ -4,7 +4,7 @@ import { useAppStore } from '../store'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { BottomSheet } from '../components/ui/BottomSheet'
-import { Input } from '../components/ui/Input'
+import { Input, Textarea } from '../components/ui/Input'
 import styles from './SessionsScreen.module.css'
 
 function formatDateTime(dateStr) {
@@ -18,7 +18,10 @@ export function SessionsScreen() {
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
   const [sheetOpen, setSheetOpen] = useState(false)
-  const [form, setForm] = useState({ scheduled_at: '', payment_status: 'unpaid' })
+  const [notesSession, setNotesSession] = useState(null)
+  const [notesText, setNotesText] = useState('')
+  const [notesSaving, setNotesSaving] = useState(false)
+  const [form, setForm] = useState({ scheduled_at: '', payment_status: 'unpaid', notes: '' })
   const [saving, setSaving] = useState(false)
   const [togglingId, setTogglingId] = useState(null)
   const [deletingId, setDeletingId] = useState(null)
@@ -37,10 +40,11 @@ export function SessionsScreen() {
       const res = await sessionsApi.create(currentClient.id, {
         scheduled_at: new Date(form.scheduled_at).toISOString(),
         payment_status: form.payment_status,
+        notes: form.notes || null,
       })
       setSessions(s => [...s, res.data].sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at)))
       setSheetOpen(false)
-      setForm({ scheduled_at: '', payment_status: 'unpaid' })
+      setForm({ scheduled_at: '', payment_status: 'unpaid', notes: '' })
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success')
     } catch {
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')
@@ -81,6 +85,26 @@ export function SessionsScreen() {
     }
   }
 
+  const openNotes = (session) => {
+    setNotesSession(session)
+    setNotesText(session.notes || '')
+  }
+
+  const saveNotes = async () => {
+    if (!notesSession) return
+    setNotesSaving(true)
+    try {
+      const res = await sessionsApi.update(currentClient.id, notesSession.id, { notes: notesText || null })
+      setSessions(s => s.map(x => x.id === notesSession.id ? res.data : x))
+      setNotesSession(null)
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success')
+    } catch {
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')
+    } finally {
+      setNotesSaving(false)
+    }
+  }
+
   return (
     <div className="screen">
       <div className={styles.header}>
@@ -114,7 +138,7 @@ export function SessionsScreen() {
             <span className={styles.emptyIcon}>📅</span>
             <p className={styles.emptyTitle}>Нет занятий</p>
             <p className={styles.emptyText}>
-              {subscriptionActive ? 'Добавьте первое занятие с клиентом' : 'Занятия появятся здесь когда специалист их добавит'}
+              {subscriptionActive ? 'Добавьте первое занятие с клиентом' : 'Занятия появятся здесь'}
             </p>
           </div>
         ) : (
@@ -126,6 +150,9 @@ export function SessionsScreen() {
                   <span className={`${styles.badge} ${s.payment_status === 'paid' ? styles.paid : styles.unpaid}`}>
                     {s.payment_status === 'paid' ? 'Оплачено' : 'Не оплачено'}
                   </span>
+                  {s.notes && (
+                    <p className={styles.notePreview}>📝 {s.notes.length > 60 ? s.notes.slice(0, 60) + '...' : s.notes}</p>
+                  )}
                   {currentClient.meeting_url && (
                     <a href={currentClient.meeting_url} target="_blank" rel="noreferrer" className={styles.joinLink}>
                       Открыть встречу →
@@ -134,18 +161,13 @@ export function SessionsScreen() {
                 </div>
                 {subscriptionActive && (
                   <div className={styles.cardActions}>
-                    <button
-                      className={styles.payBtn}
-                      onClick={() => togglePayment(s)}
-                      disabled={!!togglingId}
-                    >
+                    <button className={styles.payBtn} onClick={() => togglePayment(s)} disabled={!!togglingId}>
                       {s.payment_status === 'paid' ? '✅' : '⬜'}
                     </button>
-                    <button
-                      className={styles.delBtn}
-                      onClick={() => handleDelete(s)}
-                      disabled={!!deletingId}
-                    >
+                    <button className={styles.notesBtn} onClick={() => openNotes(s)} title="Заметки">
+                      📝
+                    </button>
+                    <button className={styles.delBtn} onClick={() => handleDelete(s)} disabled={!!deletingId}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="3 6 5 6 21 6"/>
                         <path d="M19 6l-1 14H6L5 6"/>
@@ -183,9 +205,35 @@ export function SessionsScreen() {
             ))}
           </div>
         </div>
+        <Textarea
+          label="Заметки к занятию (необязательно)"
+          placeholder="Тема занятия, домашнее задание..."
+          value={form.notes}
+          onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+        />
         <Button variant="primary" size="lg" onClick={handleCreate} disabled={saving || !form.scheduled_at}>
           {saving ? 'Создание...' : 'Добавить занятие'}
         </Button>
+      </BottomSheet>
+
+      <BottomSheet open={!!notesSession} onClose={() => setNotesSession(null)} title="Заметки к занятию">
+        {notesSession && (
+          <>
+            <p style={{ fontSize: 13, color: 'var(--gray-mid)', marginBottom: 8 }}>
+              {formatDateTime(notesSession.scheduled_at)}
+            </p>
+            <Textarea
+              label="Заметки"
+              placeholder="Тема занятия, домашнее задание, прогресс..."
+              value={notesText}
+              onChange={e => setNotesText(e.target.value)}
+              style={{ minHeight: 120 }}
+            />
+            <Button variant="primary" size="lg" onClick={saveNotes} disabled={notesSaving}>
+              {notesSaving ? 'Сохранение...' : 'Сохранить'}
+            </Button>
+          </>
+        )}
       </BottomSheet>
     </div>
   )

@@ -44,6 +44,7 @@ class User(Base):
     first_name: Mapped[str | None] = mapped_column(String(128))
     display_name: Mapped[str | None] = mapped_column(String(128))
     avatar_url: Mapped[str | None] = mapped_column(String(512))
+    bio: Mapped[str | None] = mapped_column(Text)
 
     subscription_status: Mapped[SubscriptionStatus] = mapped_column(
         Enum(SubscriptionStatus), default=SubscriptionStatus.inactive
@@ -92,6 +93,7 @@ class Session(Base):
     payment_status: Mapped[SessionPaymentStatus] = mapped_column(
         Enum(SessionPaymentStatus), default=SessionPaymentStatus.unpaid
     )
+    notes: Mapped[str | None] = mapped_column(Text)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

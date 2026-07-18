@@ -16,6 +16,7 @@ class UserOut(BaseModel):
     first_name: str | None
     display_name: str | None
     avatar_url: str | None
+    bio: str | None
     subscription_status: SubscriptionStatus
     subscription_expires_at: datetime | None
     created_at: datetime
@@ -26,6 +27,7 @@ class UserOut(BaseModel):
 class UserUpdate(BaseModel):
     display_name: str | None = Field(default=None, min_length=1, max_length=128)
     avatar_url: str | None = None
+    bio: str | None = Field(default=None, max_length=500)
 
 
 class ClientCreate(BaseModel):
@@ -63,11 +65,13 @@ class ClientOut(BaseModel):
 class SessionCreate(BaseModel):
     scheduled_at: datetime
     payment_status: SessionPaymentStatus = SessionPaymentStatus.unpaid
+    notes: str | None = None
 
 
 class SessionUpdate(BaseModel):
     scheduled_at: datetime | None = None
     payment_status: SessionPaymentStatus | None = None
+    notes: str | None = None
 
 
 class SessionOut(BaseModel):
@@ -75,6 +79,7 @@ class SessionOut(BaseModel):
     client_id: uuid.UUID
     scheduled_at: datetime
     payment_status: SessionPaymentStatus
+    notes: str | None
     created_at: datetime
 
     model_config = {"from_attributes": True}
