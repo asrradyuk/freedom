@@ -36,12 +36,8 @@ function Avatar({ avatarUrl, tgId, name, size = 88, radius = 28, onError }) {
       fontFamily: 'var(--font-display)', flexShrink: 0, position: 'relative',
     }}>
       {src
-        ? <img
-            src={src}
-            alt={name}
-            onError={handleError}
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-          />
+        ? <img src={src} alt={name} onError={handleError}
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
         : <span style={{ position: 'relative', zIndex: 1 }}>{initials}</span>
       }
     </div>
@@ -52,6 +48,7 @@ export function ProfileScreen() {
   const { user, setUser, setActiveScreen, subscriptionActive, setRole, clients } = useAppStore()
   const [editing, setEditing] = useState(false)
   const [displayName, setDisplayName] = useState('')
+  const [bio, setBio] = useState('')
   const [saving, setSaving] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -59,6 +56,7 @@ export function ProfileScreen() {
 
   useEffect(() => {
     setDisplayName(user?.display_name || user?.first_name || '')
+    setBio(user?.bio || '')
   }, [user])
 
   const handleAvatarError = async () => {
@@ -74,7 +72,10 @@ export function ProfileScreen() {
     if (!displayName.trim()) return
     setSaving(true)
     try {
-      const res = await api.patch('/profile/', { display_name: displayName.trim() })
+      const res = await api.patch('/profile/', {
+        display_name: displayName.trim(),
+        bio: bio.trim() || null,
+      })
       setUser(res.data)
       setEditing(false)
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success')
@@ -150,8 +151,14 @@ export function ProfileScreen() {
               <Input
                 value={displayName}
                 onChange={e => setDisplayName(e.target.value)}
-                placeholder="Твоё имя"
+                placeholder="Имя"
                 autoFocus
+              />
+              <Input
+                value={bio}
+                onChange={e => setBio(e.target.value)}
+                placeholder="О себе (до 500 символов)"
+                maxLength={500}
               />
               <div style={{ display: 'flex', gap: 8 }}>
                 <Button variant="primary" size="sm" onClick={handleSave} disabled={saving || !displayName.trim()}>
@@ -160,6 +167,7 @@ export function ProfileScreen() {
                 <Button variant="ghost" size="sm" onClick={() => {
                   setEditing(false)
                   setDisplayName(user?.display_name || user?.first_name || '')
+                  setBio(user?.bio || '')
                 }}>
                   Отмена
                 </Button>
@@ -170,6 +178,12 @@ export function ProfileScreen() {
               <p className={styles.name}>{user?.display_name || user?.first_name || 'Специалист'}</p>
               <button className={styles.editNameBtn} onClick={() => setEditing(true)}>✏️</button>
             </div>
+          )}
+
+          {user?.bio && !editing && (
+            <p style={{ fontSize: 14, color: 'var(--gray-mid)', textAlign: 'center', marginTop: 6, maxWidth: 280, lineHeight: 1.5 }}>
+              {user.bio}
+            </p>
           )}
 
           {tgLink && (

@@ -12,7 +12,7 @@ import { livekitApi } from '../api'
 import { useAppStore } from '../store'
 import styles from './CallScreen.module.css'
 
-const AUDIO_CONSTRAINTS = { noiseSuppression: true, echoCancellation: true, autoGainControl: true }
+const AUDIO = { noiseSuppression: true, echoCancellation: true, autoGainControl: true }
 
 async function replaceAudioTrack(localParticipant) {
   const pubs = localParticipant.getTrackPublications()
@@ -21,7 +21,7 @@ async function replaceAudioTrack(localParticipant) {
       try { await localParticipant.unpublishTrack(pub.track, true) } catch {}
     }
   }
-  const track = await createLocalAudioTrack(AUDIO_CONSTRAINTS)
+  const track = await createLocalAudioTrack(AUDIO)
   await localParticipant.publishTrack(track, { source: Track.Source.Microphone })
 }
 
@@ -140,8 +140,17 @@ function VideoArea() {
 function ChatPanel({ messages, onSend, onClose }) {
   const [text, setText] = useState('')
   const bottomRef = useRef(null)
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
-  const handleSend = () => { if (!text.trim()) return; onSend(text.trim()); setText('') }
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  const handleSend = () => {
+    if (!text.trim()) return
+    onSend(text.trim())
+    setText('')
+  }
+
   return (
     <div className={styles.chatPanel}>
       <div className={styles.chatHeader}>
@@ -259,7 +268,7 @@ function InnerCall({ onHangUp, isClient }) {
   useEffect(() => {
     if (!localParticipant || tracksPublished.current) return
     tracksPublished.current = true
-    createLocalAudioTrack(AUDIO_CONSTRAINTS)
+    createLocalAudioTrack(AUDIO)
       .then(t => localParticipant.publishTrack(t, { source: Track.Source.Microphone }))
       .catch(() => {})
     createLocalVideoTrack()
