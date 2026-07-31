@@ -18,7 +18,7 @@ async def upcoming_sessions(
     db: AsyncSession = Depends(get_db),
 ):
     now = datetime.now(timezone.utc)
-    cutoff = now + timedelta(days=2)
+    cutoff = now + timedelta(days=7)
 
     result = await db.execute(
         select(Session)
@@ -26,7 +26,7 @@ async def upcoming_sessions(
         .options(selectinload(Session.client))
         .where(
             Client.specialist_id == user.id,
-            Session.scheduled_at >= now,
+            Session.scheduled_at >= now - timedelta(hours=3),
             Session.scheduled_at < cutoff,
         )
         .order_by(Session.scheduled_at)

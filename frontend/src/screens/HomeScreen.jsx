@@ -10,11 +10,15 @@ function formatTime(dateStr) {
 
 function formatDate(dateStr) {
   const d = new Date(dateStr)
-  const today = new Date()
-  const tomorrow = new Date()
-  tomorrow.setDate(today.getDate() + 1)
-  if (d.toDateString() === today.toDateString()) return 'Сегодня'
-  if (d.toDateString() === tomorrow.toDateString()) return 'Завтра'
+  const now = new Date()
+
+  const dayStart = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  const dDay = dayStart(d).getTime()
+  const dToday = dayStart(now).getTime()
+  const dTomorrow = dToday + 86400000
+
+  if (dDay === dToday) return 'Сегодня'
+  if (dDay === dTomorrow) return 'Завтра'
   return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
 }
 
@@ -51,6 +55,13 @@ export function HomeScreen() {
     setActiveScreen('client')
   }
 
+  const handleMeetingClick = (e, url) => {
+    e.stopPropagation()
+    window.Telegram?.WebApp?.openLink
+      ? window.Telegram.WebApp.openLink(url)
+      : window.open(url, '_blank')
+  }
+
   return (
     <div className="screen">
       <div className={styles.header}>
@@ -69,8 +80,8 @@ export function HomeScreen() {
         ) : !hasAny ? (
           <div className={styles.empty}>
             <span className={styles.emptyIcon}>📅</span>
-            <p className={styles.emptyTitle}>Нет встреч сегодня</p>
-            <p className={styles.emptyText}>Запланированные занятия появятся здесь</p>
+            <p className={styles.emptyTitle}>Нет предстоящих встреч</p>
+            <p className={styles.emptyText}>Запланированные занятия на 7 дней вперёд появятся здесь</p>
           </div>
         ) : (
           Object.entries(groups).map(([day, daySessions], i) => (
@@ -91,15 +102,12 @@ export function HomeScreen() {
                       </span>
                     </div>
                     {session.client_meeting_url && (
-                      <a
-                        href={session.client_meeting_url}
+                      <button
                         className={styles.joinBtn}
-                        onClick={e => e.stopPropagation()}
-                        target="_blank"
-                        rel="noreferrer"
+                        onClick={e => handleMeetingClick(e, session.client_meeting_url)}
                       >
                         Открыть встречу →
-                      </a>
+                      </button>
                     )}
                   </Card>
                 ))}
