@@ -3,6 +3,7 @@ import { ClientCallScreen } from './ClientCallScreen'
 import { useAppStore } from '../store'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
+import { BottomSheet } from '../components/ui/BottomSheet'
 import { livekitApi, BASE_API_URL } from '../api'
 import styles from './ClientViewScreen.module.css'
 
@@ -13,9 +14,13 @@ function formatDateTime(dateStr) {
   const today = new Date()
   const tomorrow = new Date()
   tomorrow.setDate(today.getDate() + 1)
+  const dayStart = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  const dDay = dayStart(d).getTime()
+  const dToday = dayStart(today).getTime()
+  const dTomorrow = dToday + 86400000
   let dayLabel
-  if (d.toDateString() === today.toDateString()) dayLabel = 'Сегодня'
-  else if (d.toDateString() === tomorrow.toDateString()) dayLabel = 'Завтра'
+  if (dDay === dToday) dayLabel = 'Сегодня'
+  else if (dDay === dTomorrow) dayLabel = 'Завтра'
   else dayLabel = d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
   const time = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
   return { dayLabel, time }
@@ -55,11 +60,11 @@ function formatSize(bytes) {
 function Avatar({ url, tgId, name, size = 44, radius = 14 }) {
   const [err, setErr] = useState(false)
   const src = !err
-    ? (url
-        ? url.startsWith('http') ? url : `${API_ORIGIN}${url}`
-        : tgId
-        ? `${BASE_API_URL}/profile/tg-avatar/${tgId}`
-        : null)
+    ? url
+      ? url.startsWith('http') ? url : `${API_ORIGIN}${url}`
+      : tgId
+      ? `${BASE_API_URL}/profile/tg-avatar/${tgId}`
+      : null
     : null
   const initials = (name || '?').charAt(0).toUpperCase()
   return (
@@ -90,20 +95,25 @@ export function ClientViewScreen() {
   const [callToken, setCallToken] = useState(null)
   const [joiningCall, setJoiningCall] = useState(false)
   const [openingId, setOpeningId] = useState(null)
+  const [notesSession, setNotesSession] = useState(null)
+  const [notesText, setNotesText] = useState('')
+  const [notesSaving, setNotesSaving] = useState(false)
 
   const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user
   const myTgId = tgUser?.id
   const clientName = tgUser?.first_name || user?.first_name || 'Клиент'
   const clientUsername = tgUser?.username || user?.username
 
-  useEffect(() => {
+  const fetchClientInfo = () => {
     if (!myTgId) { setLoading(false); return }
     fetch(`${BASE_API_URL}/clients/by-tg/${myTgId}`)
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data) setClientInfo(data) })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { fetchClientInfo() }, [])
 
   const handleJoinCall = async () => {
     if (!clientInfo?.livekit_room || !myTgId) return
@@ -126,14 +136,47 @@ export function ClientViewScreen() {
         `${BASE_API_URL}/clients/${clientInfo.client_id}/materials/${material.id}/client-download-url?tg_id=${myTgId}`
       )
       const data = await res.json()
-      const url = data.url
       window.Telegram?.WebApp?.openLink
-        ? window.Telegram.WebApp.openLink(url)
-        : window.open(url, '_blank')
+        ? window.Telegram.WebApp.openLink(data.url)
+        : window.open(data.url, '_blank')
     } catch {
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')
     } finally {
       setOpeningId(null)
+    }
+  }
+
+  const openNotes = (session) => {
+    setNotesSession(session)
+    setNotesText(session.notes || '')
+  }
+
+  const saveNotes = async () => {
+    if (!notesSession) return
+    setNotesSaving(true)
+    try {
+      const res = await fetch(
+        `${BASE_API_URL}/clients/by-tg/${myTgId}/sessions/${notesSession.id}/notes`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ notes: notesText || null }),
+        }
+      )
+      if (res.ok) {
+        setClientInfo(prev => ({
+          ...prev,
+          sessions: prev.sessions.map(s =>
+            s.id === notesSession.id ? { ...s, notes: notesText || null } : s
+          ),
+        }))
+        setNotesSession(null)
+        window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success')
+      }
+    } catch {
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')
+    } finally {
+      setNotesSaving(false)
     }
   }
 
@@ -165,12 +208,19 @@ export function ClientViewScreen() {
           <div className={styles.specialistInfo}>
             <p className={styles.specialistLabel}>Ваш специалист</p>
             <p className={styles.specialistName}>{clientInfo.specialist_name}</p>
+            {clientInfo.specialist_bio && (
+              <p style={{ fontSize: 12, color: 'var(--gray-mid)', marginTop: 2, lineHeight: 1.4 }}>
+                {clientInfo.specialist_bio}
+              </p>
+            )}
           </div>
           <div className={styles.specialistActions}>
             {clientInfo.meeting_url && (
-              <a href={clientInfo.meeting_url} target="_blank" rel="noreferrer">
-                <button className={styles.actionBtnSm}>🔗</button>
-              </a>
+              <button className={styles.actionBtnSm} onClick={() => {
+                window.Telegram?.WebApp?.openLink
+                  ? window.Telegram.WebApp.openLink(clientInfo.meeting_url)
+                  : window.open(clientInfo.meeting_url, '_blank')
+              }}>🔗</button>
             )}
             {clientInfo.livekit_room && (
               <button className={styles.actionBtnSm} onClick={handleJoinCall} disabled={joiningCall}>
@@ -198,9 +248,11 @@ export function ClientViewScreen() {
       {clientInfo && (clientInfo.meeting_url || clientInfo.livekit_room) && (
         <div className={styles.actions}>
           {clientInfo.meeting_url && (
-            <a href={clientInfo.meeting_url} target="_blank" rel="noreferrer" style={{ flex: 1 }}>
-              <Button variant="primary" size="md" style={{ width: '100%' }}>🔗 Открыть встречу</Button>
-            </a>
+            <Button variant="primary" size="md" style={{ flex: 1 }} onClick={() => {
+              window.Telegram?.WebApp?.openLink
+                ? window.Telegram.WebApp.openLink(clientInfo.meeting_url)
+                : window.open(clientInfo.meeting_url, '_blank')
+            }}>🔗 Открыть встречу</Button>
           )}
           {clientInfo.livekit_room && (
             <Button variant="secondary" size="md" style={{ flex: 1 }} onClick={handleJoinCall} disabled={joiningCall}>
@@ -249,12 +301,23 @@ export function ClientViewScreen() {
                           <p className={styles.time}>{time}</p>
                           {isNext && <span className={styles.nextBadge}>Ближайшее</span>}
                         </div>
-                        <div className={styles.info}>
+                        <div className={styles.info} style={{ flex: 1 }}>
                           <p className={styles.sessionSpecialist}>с {clientInfo.specialist_name}</p>
                           <span className={`${styles.badge} ${s.payment_status === 'paid' ? styles.paid : styles.unpaid}`}>
                             {s.payment_status === 'paid' ? 'Оплачено' : 'Не оплачено'}
                           </span>
+                          {s.notes && (
+                            <p style={{ fontSize: 12, color: 'var(--gray-mid)', marginTop: 4, lineHeight: 1.4 }}>
+                              📝 {s.notes.length > 80 ? s.notes.slice(0, 80) + '...' : s.notes}
+                            </p>
+                          )}
                         </div>
+                        <button
+                          onClick={() => openNotes(s)}
+                          style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', padding: '4px 0 4px 8px', flexShrink: 0 }}
+                        >
+                          📝
+                        </button>
                       </Card>
                     )
                   })}
@@ -285,6 +348,30 @@ export function ClientViewScreen() {
           )
         )}
       </div>
+
+      <BottomSheet open={!!notesSession} onClose={() => setNotesSession(null)} title="Заметки к занятию">
+        {notesSession && (
+          <>
+            <p style={{ fontSize: 13, color: 'var(--gray-mid)', marginBottom: 8 }}>
+              {formatDateTime(notesSession.scheduled_at).dayLabel} · {formatDateTime(notesSession.scheduled_at).time}
+            </p>
+            <textarea
+              value={notesText}
+              onChange={e => setNotesText(e.target.value)}
+              placeholder="Заметки к занятию..."
+              style={{
+                width: '100%', minHeight: 120, padding: '10px 12px',
+                borderRadius: 12, border: '1.5px solid var(--gray-light)',
+                fontSize: 14, fontFamily: 'var(--font-body)', resize: 'vertical',
+                boxSizing: 'border-box', outline: 'none', color: 'var(--gray-dark)',
+              }}
+            />
+            <Button variant="primary" size="lg" onClick={saveNotes} disabled={notesSaving} style={{ marginTop: 8 }}>
+              {notesSaving ? 'Сохранение...' : 'Сохранить'}
+            </Button>
+          </>
+        )}
+      </BottomSheet>
     </div>
   )
 }
