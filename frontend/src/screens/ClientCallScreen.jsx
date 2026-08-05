@@ -108,12 +108,20 @@ function VideoArea() {
   )
 }
 
-function ChatPanel({ onClose }) {
-  const { chatMessages, send } = useChat()
+function ChatPanel({ messages, onSend, onClose }) {
   const [text, setText] = useState('')
   const bottomRef = useRef(null)
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [chatMessages])
-  const handleSend = () => { if (!text.trim()) return; send(text.trim()); setText('') }
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  const handleSend = () => {
+    if (!text.trim()) return
+    onSend(text.trim())
+    setText('')
+  }
+
   return (
     <div className={styles.chatPanel}>
       <div className={styles.chatHeader}>
@@ -121,8 +129,8 @@ function ChatPanel({ onClose }) {
         <button className={styles.chatClose} onClick={onClose}>✕</button>
       </div>
       <div className={styles.chatMessages}>
-        {chatMessages.length === 0 && <p className={styles.chatEmpty}>Сообщений пока нет</p>}
-        {chatMessages.map((m, i) => (
+        {messages.length === 0 && <p className={styles.chatEmpty}>Сообщений пока нет</p>}
+        {messages.map((m, i) => (
           <div key={i} className={styles.chatMsg}>
             <span className={styles.chatSender}>{m.from?.name || 'Аноним'}</span>
             <span className={styles.chatText}>{m.message}</span>
@@ -147,6 +155,7 @@ function ChatPanel({ onClose }) {
 function InnerClientCall({ onLeave }) {
   const room = useRoomContext()
   const { localParticipant } = useLocalParticipant()
+  const { chatMessages, send } = useChat()
   const [mic, setMic] = useState(true)
   const [cam, setCam] = useState(true)
   const [showChat, setShowChat] = useState(false)
@@ -190,7 +199,13 @@ function InnerClientCall({ onLeave }) {
   return (
     <div className={styles.callWrap}>
       <VideoArea />
-      {showChat && <ChatPanel onClose={() => setShowChat(false)} />}
+      {showChat && (
+        <ChatPanel
+          messages={chatMessages}
+          onSend={send}
+          onClose={() => setShowChat(false)}
+        />
+      )}
       <div className={styles.controls}>
         <div className={styles.btnRow}>
           <button className={`${styles.ctrlBtn} ${!mic ? styles.ctrlActive : ''}`} onClick={toggleMic} disabled={audioBusy}>
@@ -217,7 +232,7 @@ function InnerClientCall({ onLeave }) {
 
 export function ClientCallScreen({ token, url, onLeave }) {
   return (
-    <LiveKitRoom token={token} serverUrl={url} connect video audio onDisconnected={onLeave} style={{ height: '100dvh' }}>
+    <LiveKitRoom token={token} serverUrl={url} connect onDisconnected={onLeave} style={{ height: '100dvh' }}>
       <InnerClientCall onLeave={onLeave} />
     </LiveKitRoom>
   )
