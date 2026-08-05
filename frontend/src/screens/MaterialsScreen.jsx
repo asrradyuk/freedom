@@ -172,11 +172,19 @@ export function MaterialsScreen() {
     setOpeningId(material.id)
     try {
       const res = await materialsApi.getDownloadUrl(currentClient.id, material.id)
-      setViewer({
-        url: res.data.url,
-        mime: res.data.mime_type,
-        name: material.display_name || material.original_name,
-      })
+      const { url, mime_type: mime, name } = res.data
+      const displayName = material.display_name || material.original_name
+
+      const isImage = mime?.startsWith('image/')
+      const isVideo = mime?.startsWith('video/')
+      const isAudio = mime?.startsWith('audio/')
+      const isTelegram = !!window.Telegram?.WebApp?.initData
+
+      if (isImage || isVideo || isAudio || !isTelegram) {
+        setViewer({ url, mime, name: displayName })
+      } else {
+        window.Telegram.WebApp.openLink(url)
+      }
     } catch {
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')
     } finally {
