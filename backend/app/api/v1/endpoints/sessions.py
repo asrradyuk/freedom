@@ -1,12 +1,14 @@
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user
 from app.db.session import get_db
-from app.models.models import Client, Reminder, ReminderType, Session, SubscriptionStatus, User
+from app.models.models import Client, Package, Reminder, ReminderType, Session, SessionStatus, SubscriptionStatus, User
 from app.schemas.schemas import SessionCreate, SessionOut, SessionUpdate
 from app.services.reminders import cancel_session_reminders, schedule_session_reminders
 
@@ -41,7 +43,9 @@ async def list_sessions(
 ):
     await _get_client_or_404(client_id, user, db)
     result = await db.execute(
-        select(Session).where(Session.client_id == client_id).order_by(Session.scheduled_at)
+        select(Session)
+        .where(Session.client_id == client_id)
+        .order_by(Session.scheduled_at)
     )
     return result.scalars().all()
 
@@ -53,18 +57,21 @@ async def create_session(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    if user.subscription_status != SubscriptionStatus.active:
-        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Subscription required")
-
     client = await _get_client_or_404(client_id, user, db)
 
-    session = Session(client_id=client_id, **payload.model_dump())
+    session = Session(
+        client_id=client_id,
+        scheduled_at=payload.scheduled_at,
+        payment_status=payload.payment_status,
+        notes=payload.notes,
+        homework=payload.homework,
+        package_id=payload.package_id,
+    )
     db.add(session)
-    await db.flush()
 
     if client.reminders_enabled:
         for reminder_type in ReminderType:
-            db.add(Reminder(session_id=session.id, reminder_type=reminder_type))
+            db.add(Reminder(session=session, reminder_type=reminder_type, sent=False))
 
     await db.commit()
     await db.refresh(session)
@@ -83,24 +90,34 @@ async def update_session(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    if user.subscription_status != SubscriptionStatus.active:
-        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Subscription required")
-
-    client = await _get_client_or_404(client_id, user, db)
+    await _get_client_or_404(client_id, user, db)
     session = await _get_session_or_404(session_id, client_id, db)
 
-    rescheduled = "scheduled_at" in payload.model_dump(exclude_unset=True)
+    prev_status = session.status
 
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(session, field, value)
 
+    if payload.status == SessionStatus.completed and prev_status != SessionStatus.completed:
+        if session.package_id:
+            pkg_result = await db.execute(select(Package).where(Package.id == session.package_id))
+            pkg = pkg_result.scalar_one_or_none()
+            if pkg and pkg.remaining_sessions > 0:
+                pkg.remaining_sessions -= 1
+
+    if payload.status == SessionStatus.cancelled and prev_status == SessionStatus.completed:
+        if session.package_id:
+            pkg_result = await db.execute(select(Package).where(Package.id == session.package_id))
+            pkg = pkg_result.scalar_one_or_none()
+            if pkg:
+                pkg.remaining_sessions += 1
+
+    if payload.scheduled_at and payload.scheduled_at != session.scheduled_at:
+        cancel_session_reminders(str(session.id))
+        schedule_session_reminders(str(session.id), payload.scheduled_at)
+
     await db.commit()
     await db.refresh(session)
-
-    if rescheduled and client.reminders_enabled:
-        cancel_session_reminders(str(session.id))
-        schedule_session_reminders(str(session.id), session.scheduled_at)
-
     return session
 
 
@@ -111,11 +128,15 @@ async def delete_session(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    if user.subscription_status != SubscriptionStatus.active:
-        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Subscription required")
-
     await _get_client_or_404(client_id, user, db)
     session = await _get_session_or_404(session_id, client_id, db)
+
+    if session.status == SessionStatus.completed and session.package_id:
+        pkg_result = await db.execute(select(Package).where(Package.id == session.package_id))
+        pkg = pkg_result.scalar_one_or_none()
+        if pkg:
+            pkg.remaining_sessions += 1
+
     cancel_session_reminders(str(session.id))
     await db.delete(session)
     await db.commit()
