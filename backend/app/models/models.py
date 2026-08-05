@@ -3,15 +3,8 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
-    BigInteger,
-    Boolean,
-    DateTime,
-    Enum,
-    ForeignKey,
-    Integer,
-    String,
-    Text,
-    func,
+    BigInteger, Boolean, DateTime, Enum, ForeignKey,
+    Integer, String, Text, func,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -27,6 +20,12 @@ class SubscriptionStatus(str, enum.Enum):
 class SessionPaymentStatus(str, enum.Enum):
     paid = "paid"
     unpaid = "unpaid"
+
+
+class SessionStatus(str, enum.Enum):
+    scheduled = "scheduled"
+    completed = "completed"
+    cancelled = "cancelled"
 
 
 class ReminderType(str, enum.Enum):
@@ -50,10 +49,7 @@ class User(Base):
         Enum(SubscriptionStatus), default=SubscriptionStatus.inactive
     )
     subscription_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     clients: Mapped[list["Client"]] = relationship(back_populates="specialist", cascade="all, delete-orphan")
 
@@ -63,24 +59,19 @@ class Client(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     specialist_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"))
-
     name: Mapped[str] = mapped_column(String(256), nullable=False)
     note: Mapped[str | None] = mapped_column(Text)
     meeting_url: Mapped[str | None] = mapped_column(String(512))
     livekit_room: Mapped[str | None] = mapped_column(String(256))
-
     client_tg_id: Mapped[int | None] = mapped_column(BigInteger)
-
     reminders_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     reminder_text: Mapped[str | None] = mapped_column(Text)
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     specialist: Mapped["User"] = relationship(back_populates="clients")
     sessions: Mapped[list["Session"]] = relationship(back_populates="client", cascade="all, delete-orphan")
     materials: Mapped[list["Material"]] = relationship(back_populates="client", cascade="all, delete-orphan")
+    packages: Mapped[list["Package"]] = relationship(back_populates="client", cascade="all, delete-orphan")
 
 
 class Session(Base):
@@ -88,19 +79,32 @@ class Session(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     client_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("clients.id", ondelete="CASCADE"))
-
+    package_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("packages.id", ondelete="SET NULL"), nullable=True)
     scheduled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    payment_status: Mapped[SessionPaymentStatus] = mapped_column(
-        Enum(SessionPaymentStatus), default=SessionPaymentStatus.unpaid
-    )
+    payment_status: Mapped[SessionPaymentStatus] = mapped_column(Enum(SessionPaymentStatus), default=SessionPaymentStatus.unpaid)
+    status: Mapped[SessionStatus] = mapped_column(Enum(SessionStatus), default=SessionStatus.scheduled)
     notes: Mapped[str | None] = mapped_column(Text)
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    homework: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     client: Mapped["Client"] = relationship(back_populates="sessions")
+    package: Mapped["Package | None"] = relationship(back_populates="sessions")
     reminders: Mapped[list["Reminder"]] = relationship(back_populates="session", cascade="all, delete-orphan")
+
+
+class Package(Base):
+    __tablename__ = "packages"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    client_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("clients.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(256), nullable=False)
+    total_sessions: Mapped[int] = mapped_column(Integer, nullable=False)
+    remaining_sessions: Mapped[int] = mapped_column(Integer, nullable=False)
+    price: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    client: Mapped["Client"] = relationship(back_populates="packages")
+    sessions: Mapped[list["Session"]] = relationship(back_populates="package")
 
 
 class Material(Base):
@@ -108,15 +112,13 @@ class Material(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     client_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("clients.id", ondelete="CASCADE"))
-
     filename: Mapped[str] = mapped_column(String(512), nullable=False)
     original_name: Mapped[str] = mapped_column(String(512), nullable=False)
+    display_name: Mapped[str | None] = mapped_column(String(512))
     file_size: Mapped[int] = mapped_column(Integer, nullable=False)
     mime_type: Mapped[str | None] = mapped_column(String(128))
-
-    uploaded_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    folder: Mapped[str | None] = mapped_column(String(256))
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     client: Mapped["Client"] = relationship(back_populates="materials")
 
@@ -126,7 +128,6 @@ class Reminder(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     session_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("sessions.id", ondelete="CASCADE"))
-
     reminder_type: Mapped[ReminderType] = mapped_column(Enum(ReminderType), nullable=False)
     sent: Mapped[bool] = mapped_column(Boolean, default=False)
 
