@@ -44,6 +44,8 @@ async def list_materials(
 async def upload_material(
     client_id: uuid.UUID,
     file: UploadFile,
+    display_name: str | None = None,
+    folder: str | None = None,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -66,10 +68,37 @@ async def upload_material(
         client_id=client_id,
         filename=stored,
         original_name=file.filename,
+        display_name=display_name or None,
         file_size=len(content),
         mime_type=file.content_type,
+        folder=folder or None,
     )
     db.add(material)
+    await db.commit()
+    await db.refresh(material)
+    return material
+
+
+@router.patch("/{material_id}", response_model=MaterialOut)
+async def update_material(
+    client_id: uuid.UUID,
+    material_id: uuid.UUID,
+    display_name: str | None = None,
+    folder: str | None = None,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_client_or_404(client_id, user, db)
+    result = await db.execute(
+        select(Material).where(Material.id == material_id, Material.client_id == client_id)
+    )
+    material = result.scalar_one_or_none()
+    if not material:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found")
+    if display_name is not None:
+        material.display_name = display_name or None
+    if folder is not None:
+        material.folder = folder or None
     await db.commit()
     await db.refresh(material)
     return material
@@ -82,8 +111,6 @@ async def get_download_url(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Возвращает прямую ссылку на файл (JSON), чтобы фронт мог открыть её через openLink
-    без передачи авторизационных заголовков (внешний браузер их не отправляет)."""
     await _get_client_or_404(client_id, user, db)
     result = await db.execute(
         select(Material).where(Material.id == material_id, Material.client_id == client_id)
@@ -92,7 +119,7 @@ async def get_download_url(
     if not material:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found")
     url = await get_direct_url(material.filename)
-    return {"url": url}
+    return {"url": url, "mime_type": material.mime_type, "name": material.display_name or material.original_name}
 
 
 @router.get("/{material_id}/client-download-url")
@@ -116,7 +143,7 @@ async def get_client_download_url(
     if not material:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found")
     url = await get_direct_url(material.filename)
-    return {"url": url}
+    return {"url": url, "mime_type": material.mime_type, "name": material.display_name or material.original_name}
 
 
 @router.get("/{material_id}/download")
@@ -127,29 +154,6 @@ async def download_material(
     db: AsyncSession = Depends(get_db),
 ):
     await _get_client_or_404(client_id, user, db)
-    result = await db.execute(
-        select(Material).where(Material.id == material_id, Material.client_id == client_id)
-    )
-    material = result.scalar_one_or_none()
-    if not material:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found")
-    return await file_response(material.filename, material.original_name, material.mime_type)
-
-
-@router.get("/{material_id}/client-download")
-async def client_download_material(
-    client_id: uuid.UUID,
-    material_id: uuid.UUID,
-    tg_id: int,
-    db: AsyncSession = Depends(get_db),
-):
-    client_result = await db.execute(
-        select(Client).where(Client.id == client_id, Client.client_tg_id == tg_id)
-    )
-    client = client_result.scalar_one_or_none()
-    if not client:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
-
     result = await db.execute(
         select(Material).where(Material.id == material_id, Material.client_id == client_id)
     )
@@ -173,7 +177,6 @@ async def delete_material(
     material = result.scalar_one_or_none()
     if not material:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found")
-
     await delete_file(material.filename)
     await db.delete(material)
     await db.commit()
