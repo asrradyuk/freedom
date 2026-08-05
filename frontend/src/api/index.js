@@ -41,10 +41,9 @@ export const materialsApi = {
   upload: (clientId, file, displayName, folder) => {
     const form = new FormData()
     form.append('file', file)
-    const params = new URLSearchParams()
-    if (displayName) params.append('display_name', displayName)
-    if (folder) params.append('folder', folder)
-    return api.post(`/clients/${clientId}/materials/?${params}`, form)
+    if (displayName) form.append('display_name', displayName)
+    if (folder) form.append('folder', folder)
+    return api.post(`/clients/${clientId}/materials/`, form)
   },
   getDownloadUrl: (clientId, materialId) =>
     api.get(`/clients/${clientId}/materials/${materialId}/download-url`),

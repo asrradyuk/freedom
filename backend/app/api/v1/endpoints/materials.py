@@ -1,7 +1,7 @@
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -44,8 +44,8 @@ async def list_materials(
 async def upload_material(
     client_id: uuid.UUID,
     file: UploadFile,
-    display_name: str | None = None,
-    folder: str | None = None,
+    display_name: str | None = Form(default=None),
+    folder: str | None = Form(default=None),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
