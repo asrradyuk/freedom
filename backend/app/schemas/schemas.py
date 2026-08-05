@@ -3,7 +3,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from app.models.models import ReminderType, SessionPaymentStatus, SubscriptionStatus
+from app.models.models import ReminderType, SessionPaymentStatus, SessionStatus, SubscriptionStatus
 
 
 class TelegramAuthRequest(BaseModel):
@@ -20,7 +20,6 @@ class UserOut(BaseModel):
     subscription_status: SubscriptionStatus
     subscription_expires_at: datetime | None
     created_at: datetime
-
     model_config = {"from_attributes": True}
 
 
@@ -58,7 +57,6 @@ class ClientOut(BaseModel):
     reminders_enabled: bool
     reminder_text: str | None
     created_at: datetime
-
     model_config = {"from_attributes": True}
 
 
@@ -66,12 +64,17 @@ class SessionCreate(BaseModel):
     scheduled_at: datetime
     payment_status: SessionPaymentStatus = SessionPaymentStatus.unpaid
     notes: str | None = None
+    homework: str | None = None
+    package_id: uuid.UUID | None = None
 
 
 class SessionUpdate(BaseModel):
     scheduled_at: datetime | None = None
     payment_status: SessionPaymentStatus | None = None
+    status: SessionStatus | None = None
     notes: str | None = None
+    homework: str | None = None
+    package_id: uuid.UUID | None = None
 
 
 class SessionOut(BaseModel):
@@ -79,9 +82,34 @@ class SessionOut(BaseModel):
     client_id: uuid.UUID
     scheduled_at: datetime
     payment_status: SessionPaymentStatus
+    status: SessionStatus
     notes: str | None
+    homework: str | None
+    package_id: uuid.UUID | None
     created_at: datetime
+    model_config = {"from_attributes": True}
 
+
+class PackageCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=256)
+    total_sessions: int = Field(gt=0)
+    price: int | None = None
+
+
+class PackageUpdate(BaseModel):
+    name: str | None = None
+    remaining_sessions: int | None = None
+    price: int | None = None
+
+
+class PackageOut(BaseModel):
+    id: uuid.UUID
+    client_id: uuid.UUID
+    name: str
+    total_sessions: int
+    remaining_sessions: int
+    price: int | None
+    created_at: datetime
     model_config = {"from_attributes": True}
 
 
@@ -90,10 +118,11 @@ class MaterialOut(BaseModel):
     client_id: uuid.UUID
     filename: str
     original_name: str
+    display_name: str | None
     file_size: int
     mime_type: str | None
+    folder: str | None
     uploaded_at: datetime
-
     model_config = {"from_attributes": True}
 
 
@@ -113,5 +142,4 @@ class ReminderOut(BaseModel):
     session_id: uuid.UUID
     reminder_type: ReminderType
     sent: bool
-
     model_config = {"from_attributes": True}

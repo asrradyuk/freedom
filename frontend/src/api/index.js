@@ -29,12 +29,22 @@ export const sessionsApi = {
   delete: (clientId, id) => api.delete(`/clients/${clientId}/sessions/${id}`),
 }
 
+export const packagesApi = {
+  list: (clientId) => api.get(`/clients/${clientId}/packages/`),
+  create: (clientId, data) => api.post(`/clients/${clientId}/packages/`, data),
+  update: (clientId, id, data) => api.patch(`/clients/${clientId}/packages/${id}`, data),
+  delete: (clientId, id) => api.delete(`/clients/${clientId}/packages/${id}`),
+}
+
 export const materialsApi = {
   list: (clientId) => api.get(`/clients/${clientId}/materials/`),
-  upload: (clientId, file) => {
+  upload: (clientId, file, displayName, folder) => {
     const form = new FormData()
     form.append('file', file)
-    return api.post(`/clients/${clientId}/materials/`, form)
+    const params = new URLSearchParams()
+    if (displayName) params.append('display_name', displayName)
+    if (folder) params.append('folder', folder)
+    return api.post(`/clients/${clientId}/materials/?${params}`, form)
   },
   getDownloadUrl: (clientId, materialId) =>
     api.get(`/clients/${clientId}/materials/${materialId}/download-url`),
