@@ -148,22 +148,22 @@ export function MaterialsScreen() {
 
   const handleUpload = async () => {
     if (!pendingFile) return
+    const fileToUpload = pendingFile
+    const name = uploadForm.display_name || null
+    const folderName = uploadForm.folder || null
     setUploadSheet(false)
+    setPendingFile(null)
     setUploading(true)
     try {
-      const res = await materialsApi.upload(
-        currentClient.id,
-        pendingFile,
-        uploadForm.display_name || null,
-        uploadForm.folder || null,
-      )
+      const res = await materialsApi.upload(currentClient.id, fileToUpload, name, folderName)
       setMaterials(m => [res.data, ...m])
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success')
-    } catch {
+    } catch (err) {
+      console.error('Upload error:', err?.response?.data || err?.message || err)
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')
+      alert('Ошибка загрузки: ' + (err?.response?.data?.detail || err?.message || 'неизвестная ошибка'))
     } finally {
       setUploading(false)
-      setPendingFile(null)
     }
   }
 
