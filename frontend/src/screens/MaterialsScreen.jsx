@@ -172,18 +172,22 @@ export function MaterialsScreen() {
     setOpeningId(material.id)
     try {
       const res = await materialsApi.getDownloadUrl(currentClient.id, material.id)
-      const { url, mime_type: mime, name } = res.data
+      const { url, mime_type: mime } = res.data
       const displayName = material.display_name || material.original_name
+      const ext = displayName.split('.').pop()?.toLowerCase()
 
-      const isImage = mime?.startsWith('image/')
-      const isVideo = mime?.startsWith('video/')
-      const isAudio = mime?.startsWith('audio/')
+      const isImage = mime?.startsWith('image/') || ['jpg','jpeg','png','gif','webp','svg'].includes(ext)
+      const isVideo = mime?.startsWith('video/') || ['mp4','mov','avi','webm'].includes(ext)
+      const isAudio = mime?.startsWith('audio/') || ['mp3','wav','ogg','m4a'].includes(ext)
+      const isPdf = mime?.includes('pdf') || ext === 'pdf'
       const isTelegram = !!window.Telegram?.WebApp?.initData
 
-      if (isImage || isVideo || isAudio || !isTelegram) {
+      if ((isImage || isVideo || isAudio) && !isPdf) {
         setViewer({ url, mime, name: displayName })
-      } else {
+      } else if (isTelegram) {
         window.Telegram.WebApp.openLink(url)
+      } else {
+        setViewer({ url, mime, name: displayName })
       }
     } catch {
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')
