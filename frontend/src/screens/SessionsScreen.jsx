@@ -216,52 +216,51 @@ export function SessionsScreen() {
               const sc = statusConfig[s.status] || statusConfig.scheduled
               return (
                 <Card key={s.id} className={styles.card} style={{ opacity: deletingId === s.id ? 0.4 : 1 }}>
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <p className={styles.datetime}>{formatDateTime(s.scheduled_at)}</p>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
                       <span style={{
-                        fontSize: 11, padding: '3px 10px', borderRadius: 20, fontWeight: 500,
+                        fontSize: 11, padding: '2px 8px', borderRadius: 20, fontWeight: 500,
                         background: s.payment_status === 'paid' ? '#e8f5e9' : '#fff3e0',
                         color: s.payment_status === 'paid' ? '#2e7d32' : '#e65100',
                       }}>
                         {s.payment_status === 'paid' ? 'Оплачено' : 'Не оплачено'}
                       </span>
                       <span style={{
-                        fontSize: 11, padding: '3px 10px', borderRadius: 20, fontWeight: 500,
+                        fontSize: 11, padding: '2px 8px', borderRadius: 20, fontWeight: 500,
                         background: sc.bg, color: sc.color,
                       }}>
                         {sc.label}
                       </span>
                     </div>
                     {s.notes && (
-                      <p style={{ fontSize: 12, color: 'var(--gray-mid)', marginTop: 6, lineHeight: 1.4 }}>
-                        📝 {s.notes.length > 80 ? s.notes.slice(0, 80) + '...' : s.notes}
+                      <p style={{ fontSize: 12, color: 'var(--gray-mid)', marginTop: 4, lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        📝 {s.notes}
                       </p>
                     )}
                     {s.homework && (
-                      <p style={{ fontSize: 12, color: 'var(--gray-mid)', marginTop: 3, lineHeight: 1.4 }}>
-                        📚 {s.homework.length > 80 ? s.homework.slice(0, 80) + '...' : s.homework}
+                      <p style={{ fontSize: 12, color: 'var(--gray-mid)', marginTop: 2, lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        📚 {s.homework}
                       </p>
                     )}
                   </div>
                   {subscriptionActive && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center', paddingLeft: 8 }}>
+                    <div style={{ display: 'flex', gap: 2, alignItems: 'center', flexShrink: 0, marginLeft: 8 }}>
                       <button onClick={() => togglePayment(s)} disabled={!!togglingId}
-                        style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', padding: 4 }}>
+                        style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', padding: '6px 4px', lineHeight: 1 }}>
                         {s.payment_status === 'paid' ? '✅' : '⬜'}
                       </button>
                       <button onClick={() => cycleStatus(s)} disabled={!!togglingId}
-                        style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', padding: 4 }}
-                        title="Изменить статус">
+                        style={{ background: 'none', border: 'none', fontSize: 16, cursor: 'pointer', padding: '6px 4px', lineHeight: 1 }}>
                         {s.status === 'scheduled' ? '▶️' : s.status === 'completed' ? '↩️' : '🔄'}
                       </button>
                       <button onClick={() => setDetailSession({ ...s })}
-                        style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', padding: 4 }}>
+                        style={{ background: 'none', border: 'none', fontSize: 16, cursor: 'pointer', padding: '6px 4px', lineHeight: 1 }}>
                         📝
                       </button>
                       <button onClick={() => handleDelete(s)} disabled={!!deletingId}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'var(--gray-light)' }}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px 4px', color: 'var(--gray-light)', display: 'flex' }}>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
                           <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
                         </svg>
