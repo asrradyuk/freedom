@@ -29,54 +29,74 @@ function FileViewer({ url, mime, name, onClose }) {
   const isPdf = mime?.includes('pdf')
   const isVideo = mime?.startsWith('video/')
   const isAudio = mime?.startsWith('audio/')
+  const canPreview = isImage || isPdf || isVideo || isAudio
+
+  const openExternal = () => {
+    window.Telegram?.WebApp?.openLink
+      ? window.Telegram.WebApp.openLink(url)
+      : window.open(url, '_blank')
+  }
 
   return (
     <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)',
+      position: 'fixed', inset: 0, background: '#000',
       zIndex: 1000, display: 'flex', flexDirection: 'column',
     }}>
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '14px 16px', color: '#fff',
+        padding: 'calc(14px + env(safe-area-inset-top, 0px)) 16px 14px',
+        background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)',
       }}>
-        <p style={{ margin: 0, fontSize: 14, fontWeight: 500, maxWidth: '70%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</p>
-        <div style={{ display: 'flex', gap: 12 }}>
-          <button onClick={() => {
-            window.Telegram?.WebApp?.openLink
-              ? window.Telegram.WebApp.openLink(url)
-              : window.open(url, '_blank')
-          }} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 8, padding: '6px 12px', fontSize: 13, cursor: 'pointer' }}>
-            ↗ Открыть
+        <p style={{
+          margin: 0, fontSize: 14, fontWeight: 500, color: '#fff',
+          flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          marginRight: 12,
+        }}>
+          {name}
+        </p>
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+          <button onClick={openExternal} style={{
+            background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff',
+            borderRadius: 10, padding: '7px 14px', fontSize: 13, cursor: 'pointer',
+            fontFamily: 'var(--font-body)',
+          }}>
+            Открыть ↗
           </button>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+          <button onClick={onClose} style={{
+            background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff',
+            borderRadius: 10, width: 34, height: 34, fontSize: 16, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>✕</button>
         </div>
       </div>
+
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
         {isImage && (
           <img src={url} alt={name} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
         )}
         {isPdf && (
-          <iframe src={url} style={{ width: '100%', height: '100%', border: 'none', background: '#fff' }} title={name} />
+          <iframe src={url} title={name} style={{ width: '100%', height: '100%', border: 'none', background: '#fff' }} />
         )}
         {isVideo && (
-          <video src={url} controls style={{ maxWidth: '100%', maxHeight: '100%' }} />
+          <video src={url} controls autoPlay style={{ maxWidth: '100%', maxHeight: '100%' }} />
         )}
         {isAudio && (
-          <div style={{ textAlign: 'center', color: '#fff' }}>
-            <p style={{ fontSize: 48, marginBottom: 16 }}>🎵</p>
-            <p style={{ marginBottom: 16 }}>{name}</p>
-            <audio src={url} controls style={{ width: 280 }} />
+          <div style={{ textAlign: 'center', color: '#fff', padding: 32 }}>
+            <div style={{ fontSize: 72, marginBottom: 20 }}>🎵</div>
+            <p style={{ fontSize: 16, marginBottom: 24, opacity: 0.8 }}>{name}</p>
+            <audio src={url} controls style={{ width: '100%', maxWidth: 300 }} />
           </div>
         )}
-        {!isImage && !isPdf && !isVideo && !isAudio && (
-          <div style={{ textAlign: 'center', color: '#fff' }}>
-            <p style={{ fontSize: 64 }}>📄</p>
-            <p style={{ marginBottom: 24 }}>{name}</p>
-            <button onClick={() => {
-              window.Telegram?.WebApp?.openLink
-                ? window.Telegram.WebApp.openLink(url)
-                : window.open(url, '_blank')
-            }} style={{ background: 'var(--blue-mid)', color: '#fff', border: 'none', borderRadius: 12, padding: '12px 24px', fontSize: 15, cursor: 'pointer' }}>
+        {!canPreview && (
+          <div style={{ textAlign: 'center', color: '#fff', padding: 32 }}>
+            <div style={{ fontSize: 72, marginBottom: 20 }}>📄</div>
+            <p style={{ fontSize: 16, marginBottom: 8, opacity: 0.9, fontWeight: 500 }}>{name}</p>
+            <p style={{ fontSize: 13, opacity: 0.5, marginBottom: 32 }}>Предпросмотр недоступен</p>
+            <button onClick={openExternal} style={{
+              background: 'var(--blue-mid)', color: '#fff', border: 'none',
+              borderRadius: 14, padding: '14px 32px', fontSize: 15, cursor: 'pointer',
+              fontFamily: 'var(--font-body)', fontWeight: 500,
+            }}>
               Открыть файл
             </button>
           </div>
@@ -152,7 +172,11 @@ export function MaterialsScreen() {
     setOpeningId(material.id)
     try {
       const res = await materialsApi.getDownloadUrl(currentClient.id, material.id)
-      setViewer({ url: res.data.url, mime: res.data.mime_type, name: material.display_name || material.original_name })
+      setViewer({
+        url: res.data.url,
+        mime: res.data.mime_type,
+        name: material.display_name || material.original_name,
+      })
     } catch {
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error')
     } finally {
@@ -187,43 +211,43 @@ export function MaterialsScreen() {
           {currentClient.name}
         </button>
         <Button variant="secondary" size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
-          {uploading ? '...' : '+ Файл'}
+          {uploading ? 'Загрузка...' : '+ Файл'}
         </Button>
         <input ref={fileRef} type="file" hidden onChange={handleFileSelect} />
       </div>
 
-      <div style={{ padding: '0 20px 8px' }}>
+      <div style={{ padding: '0 20px 10px' }}>
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="🔍 Поиск по названию..."
+          placeholder="Поиск по названию..."
           style={{
-            width: '100%', padding: '9px 14px', borderRadius: 12,
+            width: '100%', padding: '10px 14px', borderRadius: 12,
             border: '1.5px solid var(--gray-light)', fontSize: 14,
-            fontFamily: 'var(--font-body)', boxSizing: 'border-box', outline: 'none',
+            fontFamily: 'var(--font-body)', boxSizing: 'border-box',
+            outline: 'none', color: 'var(--gray-dark)', background: '#fff',
           }}
         />
       </div>
 
       {folders.length > 0 && (
-        <div style={{ padding: '0 20px 8px', display: 'flex', gap: 8, overflowX: 'auto' }}>
-          <button
-            onClick={() => setActiveFolder(null)}
-            style={{
-              flexShrink: 0, padding: '5px 14px', borderRadius: 20, border: 'none',
-              background: !activeFolder ? 'var(--blue-mid)' : 'var(--blue-light)',
-              color: !activeFolder ? '#fff' : 'var(--blue-dark)', fontSize: 13, cursor: 'pointer',
-            }}
-          >
+        <div style={{ padding: '0 20px 10px', display: 'flex', gap: 8, overflowX: 'auto' }}>
+          <button onClick={() => setActiveFolder(null)} style={{
+            flexShrink: 0, padding: '6px 16px', borderRadius: 20, border: 'none', cursor: 'pointer',
+            background: !activeFolder ? 'var(--blue-mid)' : 'var(--blue-light)',
+            color: !activeFolder ? '#fff' : 'var(--blue-dark)',
+            fontSize: 13, fontFamily: 'var(--font-body)', fontWeight: 500,
+          }}>
             Все
           </button>
           {folders.map(f => (
             <button key={f} onClick={() => setActiveFolder(f === activeFolder ? null : f)} style={{
-              flexShrink: 0, padding: '5px 14px', borderRadius: 20, border: 'none',
+              flexShrink: 0, padding: '6px 16px', borderRadius: 20, border: 'none', cursor: 'pointer',
               background: activeFolder === f ? 'var(--blue-mid)' : 'var(--blue-light)',
-              color: activeFolder === f ? '#fff' : 'var(--blue-dark)', fontSize: 13, cursor: 'pointer',
+              color: activeFolder === f ? '#fff' : 'var(--blue-dark)',
+              fontSize: 13, fontFamily: 'var(--font-body)', fontWeight: 500,
             }}>
-              📁 {f}
+              {f}
             </button>
           ))}
         </div>
@@ -236,12 +260,18 @@ export function MaterialsScreen() {
           <div className={styles.empty}>
             <span className={styles.emptyIcon}>📁</span>
             <p className={styles.emptyTitle}>{search ? 'Ничего не найдено' : 'Нет файлов'}</p>
-            {!search && <Button variant="primary" onClick={() => fileRef.current?.click()} style={{ marginTop: 16 }}>Загрузить файл</Button>}
+            {!search && (
+              <Button variant="primary" onClick={() => fileRef.current?.click()} style={{ marginTop: 16 }}>
+                Загрузить файл
+              </Button>
+            )}
           </div>
         ) : (
           <div className={styles.list}>
             {filtered.map((m, i) => (
-              <Card key={m.id} className={styles.card}
+              <Card
+                key={m.id}
+                className={styles.card}
                 style={{ animationDelay: `${i * 0.04}s`, opacity: deletingId === m.id ? 0.4 : 1 }}
                 onClick={() => handleOpen(m)}
               >
@@ -250,15 +280,17 @@ export function MaterialsScreen() {
                   <p className={styles.filename}>{m.display_name || m.original_name}</p>
                   <p className={styles.meta}>
                     {formatSize(m.file_size)}
-                    {m.folder && <> · 📁 {m.folder}</>}
+                    {m.folder && <span style={{ color: 'var(--blue-mid)', marginLeft: 6 }}>· {m.folder}</span>}
                   </p>
                 </div>
                 <div className={styles.actions} onClick={e => e.stopPropagation()}>
                   <span className={styles.openHint}>{openingId === m.id ? '...' : '↗'}</span>
                   <button className={styles.delBtn} onClick={() => handleDelete(m)} disabled={!!deletingId}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
-                      <path d="M10 11v6"/><path d="M14 11v6"/>
+                      <polyline points="3 6 5 6 21 6"/>
+                      <path d="M19 6l-1 14H6L5 6"/>
+                      <path d="M10 11v6"/>
+                      <path d="M14 11v6"/>
                     </svg>
                   </button>
                 </div>
@@ -268,14 +300,29 @@ export function MaterialsScreen() {
         )}
       </div>
 
-      <BottomSheet open={uploadSheet} onClose={() => { setUploadSheet(false); setPendingFile(null) }} title="Загрузить файл">
+      <BottomSheet
+        open={uploadSheet}
+        onClose={() => { setUploadSheet(false); setPendingFile(null) }}
+        title="Загрузить файл"
+      >
         {pendingFile && (
           <>
-            <p style={{ fontSize: 13, color: 'var(--gray-mid)', marginBottom: 12 }}>
-              {fileIcon(pendingFile.type)} {pendingFile.name} · {formatSize(pendingFile.size)}
-            </p>
+            <div style={{
+              padding: '10px 14px', background: 'var(--blue-light)', borderRadius: 12,
+              marginBottom: 4, display: 'flex', alignItems: 'center', gap: 10,
+            }}>
+              <span style={{ fontSize: 20 }}>{fileIcon(pendingFile.type)}</span>
+              <div>
+                <p style={{ margin: 0, fontSize: 13, color: 'var(--blue-dark)', fontWeight: 500 }}>
+                  {pendingFile.name}
+                </p>
+                <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--blue-mid)' }}>
+                  {formatSize(pendingFile.size)}
+                </p>
+              </div>
+            </div>
             <Input
-              label="Название файла"
+              label="Название"
               value={uploadForm.display_name}
               onChange={e => setUploadForm(f => ({ ...f, display_name: e.target.value }))}
               placeholder="Как назвать файл"
@@ -284,7 +331,7 @@ export function MaterialsScreen() {
               label="Папка (необязательно)"
               value={uploadForm.folder}
               onChange={e => setUploadForm(f => ({ ...f, folder: e.target.value }))}
-              placeholder="Например: Домашние задания"
+              placeholder="Домашние задания"
             />
             <Button variant="primary" size="lg" onClick={handleUpload}>
               Загрузить

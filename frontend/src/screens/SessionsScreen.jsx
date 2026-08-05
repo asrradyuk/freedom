@@ -13,9 +13,6 @@ function formatDateTime(dateStr) {
   })
 }
 
-const STATUS_LABELS = { scheduled: '📅 Запланировано', completed: '✅ Проведено', cancelled: '❌ Отменено' }
-const STATUS_NEXT = { scheduled: 'completed', completed: 'cancelled', cancelled: 'scheduled' }
-
 export function SessionsScreen() {
   const { currentClient, setActiveScreen, subscriptionActive } = useAppStore()
   const [sessions, setSessions] = useState([])
@@ -85,16 +82,17 @@ export function SessionsScreen() {
     }
   }
 
-  const toggleStatus = async (session) => {
+  const cycleStatus = async (session) => {
     if (!subscriptionActive || togglingId) return
-    const newStatus = STATUS_NEXT[session.status] || 'scheduled'
+    const next = { scheduled: 'completed', completed: 'cancelled', cancelled: 'scheduled' }
+    const newStatus = next[session.status] || 'scheduled'
     setTogglingId(session.id)
     setSessions(s => s.map(x => x.id === session.id ? { ...x, status: newStatus } : x))
     try {
       const res = await sessionsApi.update(currentClient.id, session.id, { status: newStatus })
       setSessions(s => s.map(x => x.id === session.id ? res.data : x))
-      setPackages(await packagesApi.list(currentClient.id).then(r => r.data).catch(() => packages))
-      window.Telegram?.WebApp?.HapticFeedback?.selectionChanged()
+      const pkgs = await packagesApi.list(currentClient.id).then(r => r.data).catch(() => packages)
+      setPackages(pkgs)
     } catch {
       setSessions(s => s.map(x => x.id === session.id ? session : x))
     } finally {
@@ -123,7 +121,8 @@ export function SessionsScreen() {
     setSessions(s => s.filter(x => x.id !== session.id))
     try {
       await sessionsApi.delete(currentClient.id, session.id)
-      setPackages(await packagesApi.list(currentClient.id).then(r => r.data).catch(() => packages))
+      const pkgs = await packagesApi.list(currentClient.id).then(r => r.data).catch(() => packages)
+      setPackages(pkgs)
     } catch {
       setSessions(s => [...s, session].sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at)))
     } finally {
@@ -149,6 +148,12 @@ export function SessionsScreen() {
     }
   }
 
+  const statusConfig = {
+    scheduled: { label: 'Запланировано', color: '#1565c0', bg: '#e3f2fd' },
+    completed: { label: 'Проведено', color: '#2e7d32', bg: '#e8f5e9' },
+    cancelled: { label: 'Отменено', color: '#b71c1c', bg: '#fce4ec' },
+  }
+
   return (
     <div className="screen">
       <div className={styles.header}>
@@ -159,34 +164,40 @@ export function SessionsScreen() {
           {currentClient.name}
         </button>
         {subscriptionActive && (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Button variant="ghost" size="sm" onClick={() => setPkgSheetOpen(true)}>📦</Button>
-            <Button variant="secondary" size="sm" onClick={() => setSheetOpen(true)}>+ Занятие</Button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <Button variant="secondary" size="sm" onClick={() => setPkgSheetOpen(true)}>Абонемент</Button>
+            <Button variant="primary" size="sm" onClick={() => setSheetOpen(true)}>+ Занятие</Button>
           </div>
         )}
       </div>
 
       {packages.length > 0 && (
-        <div style={{ padding: '0 20px 8px', display: 'flex', gap: 8, overflowX: 'auto' }}>
+        <div style={{ padding: '0 20px 12px', display: 'flex', gap: 8, overflowX: 'auto' }}>
           {packages.map(pkg => (
             <div key={pkg.id} style={{
-              background: 'var(--blue-light)', borderRadius: 12, padding: '8px 14px',
-              flexShrink: 0, fontSize: 13,
+              background: 'var(--blue-light)', borderRadius: 14, padding: '10px 16px',
+              flexShrink: 0, minWidth: 140,
             }}>
-              <p style={{ fontWeight: 600, color: 'var(--blue-dark)', margin: 0 }}>{pkg.name}</p>
-              <p style={{ color: 'var(--blue-mid)', margin: '2px 0 0' }}>
-                {pkg.remaining_sessions}/{pkg.total_sessions} занятий
-                {pkg.price ? ` · ${pkg.price} ₽` : ''}
+              <p style={{ fontWeight: 600, color: 'var(--blue-dark)', margin: 0, fontSize: 13 }}>{pkg.name}</p>
+              <p style={{ color: 'var(--blue-mid)', margin: '3px 0 0', fontSize: 12 }}>
+                {pkg.remaining_sessions} из {pkg.total_sessions} занятий
               </p>
+              {pkg.price && <p style={{ color: 'var(--blue-mid)', margin: '1px 0 0', fontSize: 12 }}>{pkg.price.toLocaleString('ru-RU')} ₽</p>}
             </div>
           ))}
         </div>
       )}
 
-      <div className={styles.tabs} style={{ padding: '0 20px 0' }}>
-        {['upcoming', 'archive'].map(t => (
-          <button key={t} className={`${styles.tab} ${tab === t ? styles.tabActive : ''}`} onClick={() => setTab(t)}>
-            {t === 'upcoming' ? '📅 Предстоящие' : '🗂 Архив'}
+      <div style={{ padding: '0 20px 12px', display: 'flex', gap: 8 }}>
+        {[['upcoming', 'Предстоящие'], ['archive', 'Архив']].map(([key, label]) => (
+          <button key={key} onClick={() => setTab(key)} style={{
+            flex: 1, padding: '9px 0', borderRadius: 12, border: 'none', cursor: 'pointer',
+            fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500,
+            background: tab === key ? 'var(--blue-mid)' : 'var(--gray-bg)',
+            color: tab === key ? '#fff' : 'var(--gray-mid)',
+            transition: 'all 0.15s',
+          }}>
+            {label}
           </button>
         ))}
       </div>
@@ -201,43 +212,65 @@ export function SessionsScreen() {
           </div>
         ) : (
           <div className={styles.list}>
-            {shown.map(s => (
-              <Card key={s.id} className={styles.card}>
-                <div className={styles.cardLeft}>
-                  <p className={styles.datetime}>{formatDateTime(s.scheduled_at)}</p>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
-                    <span className={`${styles.badge} ${s.payment_status === 'paid' ? styles.paid : styles.unpaid}`}>
-                      {s.payment_status === 'paid' ? 'Оплачено' : 'Не оплачено'}
-                    </span>
-                    <span style={{
-                      fontSize: 11, padding: '2px 8px', borderRadius: 20,
-                      background: s.status === 'completed' ? '#e8f5e9' : s.status === 'cancelled' ? '#fce4ec' : '#e3f2fd',
-                      color: s.status === 'completed' ? '#2e7d32' : s.status === 'cancelled' ? '#c62828' : '#1565c0',
-                    }}>
-                      {STATUS_LABELS[s.status]}
-                    </span>
+            {shown.map(s => {
+              const sc = statusConfig[s.status] || statusConfig.scheduled
+              return (
+                <Card key={s.id} className={styles.card} style={{ opacity: deletingId === s.id ? 0.4 : 1 }}>
+                  <div style={{ flex: 1 }}>
+                    <p className={styles.datetime}>{formatDateTime(s.scheduled_at)}</p>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                      <span style={{
+                        fontSize: 11, padding: '3px 10px', borderRadius: 20, fontWeight: 500,
+                        background: s.payment_status === 'paid' ? '#e8f5e9' : '#fff3e0',
+                        color: s.payment_status === 'paid' ? '#2e7d32' : '#e65100',
+                      }}>
+                        {s.payment_status === 'paid' ? 'Оплачено' : 'Не оплачено'}
+                      </span>
+                      <span style={{
+                        fontSize: 11, padding: '3px 10px', borderRadius: 20, fontWeight: 500,
+                        background: sc.bg, color: sc.color,
+                      }}>
+                        {sc.label}
+                      </span>
+                    </div>
+                    {s.notes && (
+                      <p style={{ fontSize: 12, color: 'var(--gray-mid)', marginTop: 6, lineHeight: 1.4 }}>
+                        📝 {s.notes.length > 80 ? s.notes.slice(0, 80) + '...' : s.notes}
+                      </p>
+                    )}
+                    {s.homework && (
+                      <p style={{ fontSize: 12, color: 'var(--gray-mid)', marginTop: 3, lineHeight: 1.4 }}>
+                        📚 {s.homework.length > 80 ? s.homework.slice(0, 80) + '...' : s.homework}
+                      </p>
+                    )}
                   </div>
-                  {s.notes && <p style={{ fontSize: 12, color: 'var(--gray-mid)', marginTop: 4 }}>📝 {s.notes.slice(0, 60)}{s.notes.length > 60 ? '...' : ''}</p>}
-                  {s.homework && <p style={{ fontSize: 12, color: 'var(--gray-mid)', marginTop: 2 }}>📚 {s.homework.slice(0, 60)}{s.homework.length > 60 ? '...' : ''}</p>}
-                </div>
-                {subscriptionActive && (
-                  <div className={styles.cardActions}>
-                    <button className={styles.payBtn} onClick={() => togglePayment(s)} disabled={!!togglingId}>
-                      {s.payment_status === 'paid' ? '✅' : '⬜'}
-                    </button>
-                    <button onClick={() => toggleStatus(s)} disabled={!!togglingId} style={{ background: 'none', border: 'none', fontSize: 16, cursor: 'pointer', padding: '4px' }}>
-                      {s.status === 'scheduled' ? '▶️' : s.status === 'completed' ? '↩️' : '🔄'}
-                    </button>
-                    <button className={styles.notesBtn} onClick={() => setDetailSession({ ...s })}>📝</button>
-                    <button className={styles.delBtn} onClick={() => handleDelete(s)} disabled={!!deletingId}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
-                      </svg>
-                    </button>
-                  </div>
-                )}
-              </Card>
-            ))}
+                  {subscriptionActive && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center', paddingLeft: 8 }}>
+                      <button onClick={() => togglePayment(s)} disabled={!!togglingId}
+                        style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', padding: 4 }}>
+                        {s.payment_status === 'paid' ? '✅' : '⬜'}
+                      </button>
+                      <button onClick={() => cycleStatus(s)} disabled={!!togglingId}
+                        style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', padding: 4 }}
+                        title="Изменить статус">
+                        {s.status === 'scheduled' ? '▶️' : s.status === 'completed' ? '↩️' : '🔄'}
+                      </button>
+                      <button onClick={() => setDetailSession({ ...s })}
+                        style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', padding: 4 }}>
+                        📝
+                      </button>
+                      <button onClick={() => handleDelete(s)} disabled={!!deletingId}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'var(--gray-light)' }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
+                          <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+                        </svg>
+                      </button>
+                    </div>
+                  )}
+                </Card>
+              )
+            })}
           </div>
         )}
       </div>
@@ -246,7 +279,7 @@ export function SessionsScreen() {
         <Input label="Дата и время" type="datetime-local" value={form.scheduled_at}
           onChange={e => setForm(f => ({ ...f, scheduled_at: e.target.value }))} />
         <div className={styles.paymentToggle}>
-          <span className={styles.paymentLabel}>Статус оплаты</span>
+          <span className={styles.paymentLabel}>Оплата</span>
           <div className={styles.paymentOptions}>
             {['unpaid', 'paid'].map(v => (
               <button key={v}
@@ -259,17 +292,22 @@ export function SessionsScreen() {
         </div>
         {packages.length > 0 && (
           <div>
-            <p style={{ fontSize: 13, fontWeight: 500, marginBottom: 6 }}>Абонемент</p>
-            <select value={form.package_id} onChange={e => setForm(f => ({ ...f, package_id: e.target.value }))}
-              style={{ width: '100%', padding: '10px 12px', borderRadius: 12, border: '1.5px solid var(--gray-light)', fontSize: 14 }}>
+            <p style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--gray-mid)', marginBottom: 8 }}>Абонемент</p>
+            <select value={form.package_id} onChange={e => setForm(f => ({ ...f, package_id: e.target.value }))} style={{
+              width: '100%', padding: '12px 14px', borderRadius: 14,
+              border: '1.5px solid var(--gray-light)', fontSize: 15,
+              fontFamily: 'var(--font-body)', background: '#fff', color: 'var(--gray-dark)',
+            }}>
               <option value="">Без абонемента</option>
-              {packages.map(p => <option key={p.id} value={p.id}>{p.name} ({p.remaining_sessions} ост.)</option>)}
+              {packages.map(p => (
+                <option key={p.id} value={p.id}>{p.name} ({p.remaining_sessions} ост.)</option>
+              ))}
             </select>
           </div>
         )}
-        <Textarea label="Заметки" placeholder="Тема занятия..." value={form.notes}
+        <Textarea label="Заметки" placeholder="Тема, план занятия..." value={form.notes}
           onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
-        <Textarea label="Домашнее задание" placeholder="Задание на следующее занятие..." value={form.homework}
+        <Textarea label="Домашнее задание" placeholder="Задание на следующий раз..." value={form.homework}
           onChange={e => setForm(f => ({ ...f, homework: e.target.value }))} />
         <Button variant="primary" size="lg" onClick={handleCreate} disabled={saving || !form.scheduled_at}>
           {saving ? 'Создание...' : 'Добавить занятие'}
@@ -277,7 +315,7 @@ export function SessionsScreen() {
       </BottomSheet>
 
       <BottomSheet open={pkgSheetOpen} onClose={() => setPkgSheetOpen(false)} title="Новый абонемент">
-        <Input label="Название" placeholder="Базовый, 8 занятий" value={pkgForm.name}
+        <Input label="Название" placeholder="Базовый курс, 8 занятий" value={pkgForm.name}
           onChange={e => setPkgForm(f => ({ ...f, name: e.target.value }))} />
         <Input label="Количество занятий" type="number" placeholder="8" value={pkgForm.total_sessions}
           onChange={e => setPkgForm(f => ({ ...f, total_sessions: e.target.value }))} />
@@ -288,10 +326,12 @@ export function SessionsScreen() {
         </Button>
       </BottomSheet>
 
-      <BottomSheet open={!!detailSession} onClose={() => setDetailSession(null)} title="Заметки и ДЗ">
+      <BottomSheet open={!!detailSession} onClose={() => setDetailSession(null)} title="Заметки и домашнее задание">
         {detailSession && (
           <>
-            <p style={{ fontSize: 13, color: 'var(--gray-mid)', marginBottom: 8 }}>{formatDateTime(detailSession.scheduled_at)}</p>
+            <p style={{ fontSize: 13, color: 'var(--gray-mid)', marginBottom: 12 }}>
+              {formatDateTime(detailSession.scheduled_at)}
+            </p>
             <Textarea label="Заметки к занятию" placeholder="Что разбирали..."
               value={detailSession.notes || ''}
               onChange={e => setDetailSession(d => ({ ...d, notes: e.target.value }))} />
